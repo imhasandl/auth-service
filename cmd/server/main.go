@@ -1,14 +1,15 @@
 package main
 
 import (
-	"context"
 	"log"
 	"net"
+	"os"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
 	pb "github.com/imhasandl/grpc-go/internal/protos"
+	"github.com/joho/godotenv"
 )
 
 type server struct {
@@ -20,7 +21,16 @@ type server struct {
 // }
 
 func main() {
-	lis, err := net.Listen("tcp", ":50051")
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		log.Fatalf("Set Port in env")
+	}
+
+	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("failed to listed: %v", err)
 	}
