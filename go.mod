@@ -14,6 +14,11 @@ require golang.org/x/crypto v0.33.0
 require github.com/lib/pq v1.10.9
 
 require (
+	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
+	golang.org/x/oauth2 v0.26.0 // indirect
+)
+
+require (
 	github.com/google/uuid v1.6.0
 	golang.org/x/net v0.32.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
