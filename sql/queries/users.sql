@@ -10,3 +10,7 @@ VALUES (
    $5
 )
 RETURNING *;
+
+-- name: GetUserByIdentifier :one
+SELECT * FROM users
+WHERE email = $1 OR username = $2;

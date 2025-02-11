@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "github.com/lib/pq" //Import the postgres driver
 	"database/sql"
 	"log"
 	"net"
@@ -26,20 +27,20 @@ type server struct {
 }
 
 func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
-	if len(req.Username) < 5 {
+	if len(req.GetUsername()) < 5 {
 		return nil, status.Errorf(codes.Internal, "username should be 5 characters long")
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.GetPassword()), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to hash password: %v - Register", err)
 	}
 	
 	userParams := database.CreateUserParams{
 		ID: uuid.New(),
-		Email: req.Email,
+		Email: req.GetEmail(),
 		Password: string(hashedPassword),
-		Username:  req.Username,
+		Username:  req.GetUsername(),
 	}
 
 	user, err := s.db.CreateUser(ctx, userParams)
@@ -62,12 +63,42 @@ func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 	}, nil
 }
 
-// func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
+func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
+	userParams := database.GetUserByIdentifierParams{
+		Email: req.GetIdentifier(),
+		Username: req.GetIdentifier(),
+	}
+	
+	user, err := s.db.GetUserByIdentifier(ctx, userParams)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "can't get user with identifier: %v - Login", err)
+	}
 
-// }
+	createdAtProto := timestamppb.New(user.CreatedAt) // Converts time.Time type into timespamppb
+	updatedAtProto := timestamppb.New(user.UpdatedAt) // Converts time.Time type into timespamppb
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.GetPassword()))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "invalid credentials: %v - Login", err)
+	}
+
+	token := "token"
+
+	return &pb.LoginResponse{
+		User: &pb.User{
+			Id: user.ID.String(),
+			CreatedAt: createdAtProto,
+			UpdatedAt: updatedAtProto,
+			Email: user.Email,
+			Username: user.Username,
+			IsPremium: user.IsPremium,
+		},
+		Token: token,
+	}, nil
+}
 
 func main() {
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load("../../.env"); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
