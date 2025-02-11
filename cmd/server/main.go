@@ -2,20 +2,23 @@ package main
 
 import (
 	"context"
-	_ "github.com/lib/pq" //Import the postgres driver
 	"database/sql"
 	"log"
 	"net"
 	"os"
+	"time"
 
+	_ "github.com/lib/pq" //Import the postgres driver
+
+	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
-	"golang.org/x/crypto/bcrypt" 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/google/uuid"
+	"github.com/imhasandl/grpc-go/internal/auth"
 	"github.com/imhasandl/grpc-go/internal/database"
 	pb "github.com/imhasandl/grpc-go/internal/protos"
 	"github.com/joho/godotenv"
@@ -24,6 +27,7 @@ import (
 type server struct {
 	pb.UnimplementedAuthServiceServer
 	db *database.Queries
+	tokenSecret string
 }
 
 func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
@@ -82,7 +86,10 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 		return nil, status.Errorf(codes.Internal, "invalid credentials: %v - Login", err)
 	}
 
-	token := "token"
+	accessToken, err := auth.MakeJWT(user.ID, s.tokenSecret, time.Hour)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "can't create token: %v - Login", err)
+	}
 
 	return &pb.LoginResponse{
 		User: &pb.User{
@@ -93,7 +100,7 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 			Username: user.Username,
 			IsPremium: user.IsPremium,
 		},
-		Token: token,
+		Token: accessToken,
 	}, nil
 }
 
@@ -112,6 +119,11 @@ func main() {
 		log.Fatalf("Set db connection in env")
 	}
 
+	tokenSecret := os.Getenv("TOKEN_SECRET")
+	if tokenSecret == "" {
+		log.Fatalf("Set db connection in env")
+	}
+
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("failed to listed: %v", err)
@@ -127,6 +139,7 @@ func main() {
 	server := &server{
 		pb.UnimplementedAuthServiceServer{},
 		dbQueries,
+		tokenSecret,
 	}
 
 	s := grpc.NewServer()
