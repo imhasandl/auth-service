@@ -5,7 +5,8 @@ CREATE TABLE users (
    updated_at TIMESTAMP NOT NULL,
    email TEXT NOT NULL UNIQUE,
    password TEXT NOT NULL,
-   username TEXT NOT NULL
+   username TEXT NOT NULL,
+   is_premium BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- +goose Down
