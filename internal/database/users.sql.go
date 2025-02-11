@@ -12,23 +12,25 @@ import (
 )
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (id, created_at, updated_at, email, password, username)
+INSERT INTO users (id, created_at, updated_at, email, password, username, is_premium)
 VALUES (
    $1,
    NOW(),
    NOW(),
    $2,
    $3,
-   $4
+   $4,
+   $5
 )
-RETURNING id, created_at, updated_at, email, password, username
+RETURNING id, created_at, updated_at, email, password, username, is_premium
 `
 
 type CreateUserParams struct {
-	ID       uuid.UUID
-	Email    string
-	Password string
-	Username string
+	ID        uuid.UUID
+	Email     string
+	Password  string
+	Username  string
+	IsPremium bool
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -37,6 +39,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.Email,
 		arg.Password,
 		arg.Username,
+		arg.IsPremium,
 	)
 	var i User
 	err := row.Scan(
@@ -46,6 +49,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Email,
 		&i.Password,
 		&i.Username,
+		&i.IsPremium,
 	)
 	return i, err
 }
