@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	_ "github.com/lib/pq" //Import the postgres driver
+	_ "github.com/lib/pq" // Import the postgres driver
 
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc"
@@ -25,10 +25,10 @@ import (
 )
 
 type server struct {
-	pb.UnimplementedAuthServiceServer
-	db *database.Queries
-	tokenSecret string
-}
+		pb.UnimplementedAuthServiceServer
+		db *database.Queries
+		tokenSecret string
+	}
 
 func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	if len(req.GetUsername()) < 5 {
@@ -105,7 +105,7 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 }
 
 func main() {
-	if err := godotenv.Load("../../.env"); err != nil {
+	if err := godotenv.Load(".env"); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
