@@ -18,9 +18,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/google/uuid"
-	"github.com/imhasandl/grpc-go/internal/auth"
-	"github.com/imhasandl/grpc-go/internal/database"
-	pb "github.com/imhasandl/grpc-go/internal/protos"
+	"github.com/imhasandl/auth-service/internal/auth"
+	"github.com/imhasandl/auth-service/internal/database"
+	pb "github.com/imhasandl/auth-service/internal/protos"
 	"github.com/joho/godotenv"
 )
 

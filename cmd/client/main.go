@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	pb "github.com/imhasandl/grpc-go/internal/protos"
+	pb "github.com/imhasandl/auth-service/internal/protos"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 )

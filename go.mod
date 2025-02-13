@@ -1,4 +1,4 @@
-module github.com/imhasandl/grpc-go
+module github.com/imhasandl/auth-service
 
 go 1.23.5
 
