@@ -9,6 +9,7 @@ option go_package = "github.com/imhasandl/grpc-go/internal/protos";
 service AuthService {
   rpc Register (RegisterRequest) returns (RegisterResponse) {}
   rpc Login (LoginRequest) returns (LoginResponse) {}
+  rpc GetUserByID (GetUserByIDRequest) returns (GetUserByIDResponse) {}
 }
 
 message RegisterRequest {
@@ -31,6 +32,14 @@ message LoginResponse {
   string token = 2;
 }
 
+message GetUserByIDRequest {
+  string id = 1;
+}
+
+message GetUserByIDResponse {
+  User user = 1;
+}
+
 message User {
   string id = 1;
   google.protobuf.Timestamp created_at = 2;
@@ -39,3 +48,5 @@ message User {
   string username = 5;
   bool is_premium = 6;
 }
+
+// protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative auth.proto
