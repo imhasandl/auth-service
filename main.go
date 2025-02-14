@@ -7,12 +7,13 @@ import (
 	"os"
 
 	_ "github.com/lib/pq" // Import the postgres driver
-	"github.com/imhasandl/auth-service/internal/protos"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
+
 	server "github.com/imhasandl/auth-service/cmd/server"
 	"github.com/imhasandl/auth-service/internal/database"
+	pb "github.com/imhasandl/auth-service/internal/protos"
 	"github.com/joho/godotenv"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {

@@ -11,7 +11,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
 	pb "github.com/imhasandl/auth-service/internal/protos"
 )
 
