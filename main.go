@@ -10,7 +10,7 @@ import (
 
 	server "github.com/imhasandl/auth-service/cmd/server"
 	"github.com/imhasandl/auth-service/internal/database"
-	pb "github.com/imhasandl/auth-service/internal/protos"
+	pb "github.com/imhasandl/auth-service/protos"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
