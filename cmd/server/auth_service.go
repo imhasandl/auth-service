@@ -7,11 +7,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/imhasandl/auth-service/cmd/helper/auth"
 	"github.com/imhasandl/auth-service/internal/database"
+	pb "github.com/imhasandl/auth-service/protos"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	pb "github.com/imhasandl/auth-service/protos"
+	"google.golang.org/protobuf/types/known/timestamppb
 )
 
 type server struct {
@@ -100,4 +100,56 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 		},
 		Token: accessToken,
 	}, nil
+}
+
+func (s *server) GetUserByID(ctx context.Context, req *pb.GetUserByIDRequest) (*pb.GetUserByIDResponse, error) {
+	userID, err := uuid.Parse(req.GetId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid user ID")
+	}
+
+	user, err := s.db.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "can't get user by ID: %v", err)
+	}
+
+	createdAtProto := timestamppb.New(user.CreatedAt)
+	updatedAtProto := timestamppb.New(user.UpdatedAt)
+
+	return &pb.GetUserByIDResponse{
+		User: &pb.User{
+			Id:        user.ID.String(),
+			CreatedAt: createdAtProto,
+			UpdatedAt: updatedAtProto,
+			Email:     user.Email,
+			Username:  user.Username,
+			IsPremium: user.IsPremium,
+		},
+	}, nil
+}
+
+func (s *server) GetAllUsers(ctx context.Context, req *pb.GetAllUsersRequest) (*pb.GetAllUsersResponse, error) {
+	users, err := s.db.GetAllUsers(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "can't get all users: %v", err)
+	}
+
+	usersProto := make([]*pb.User, len(users))
+	for i, user := range users {
+		createdAtProto := timestamppb.New(user.CreatedAt)
+		updatedAtProto := timestamppb.New(user.UpdatedAt)
+		usersProto[i] = &pb.User{
+			Id:        user.ID.String(),
+			CreatedAt: createdAtProto,
+			UpdatedAt: updatedAtProto,
+			Email:     user.Email,
+			Username:  user.Username,
+			IsPremium: user.IsPremium,
+		}
+	}
+
+	return &pb.GetAllUsersResponse{
+		User: usersProto,
+	}, nil
+
 }
