@@ -54,61 +54,6 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
-const getAllUsers = `-- name: GetAllUsers :many
-SELECT id, created_at, updated_at, email, password, username, is_premium FROM users
-`
-
-func (q *Queries) GetAllUsers(ctx context.Context) ([]User, error) {
-	rows, err := q.db.QueryContext(ctx, getAllUsers)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []User
-	for rows.Next() {
-		var i User
-		if err := rows.Scan(
-			&i.ID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Email,
-			&i.Password,
-			&i.Username,
-			&i.IsPremium,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getUserByID = `-- name: GetUserByID :one
-SELECT id, created_at, updated_at, email, password, username, is_premium FROM users
-WHERE id = $1
-`
-
-func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUserByID, id)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Email,
-		&i.Password,
-		&i.Username,
-		&i.IsPremium,
-	)
-	return i, err
-}
-
 const getUserByIdentifier = `-- name: GetUserByIdentifier :one
 SELECT id, created_at, updated_at, email, password, username, is_premium FROM users
 WHERE email = $1 OR username = $2

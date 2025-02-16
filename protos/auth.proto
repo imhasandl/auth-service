@@ -9,9 +9,6 @@ option go_package = "github.com/imhasandl/grpc-go/protos";
 service AuthService {
   rpc Register (RegisterRequest) returns (RegisterResponse) {}
   rpc Login (LoginRequest) returns (LoginResponse) {}
-
-  rpc GetUserByID (GetUserByIDRequest) returns (GetUserByIDResponse) {}
-  rpc GetAllUsers (GetAllUsersRequest) returns (GetAllUsersResponse) {}
 }
 
 message RegisterRequest {
@@ -32,20 +29,6 @@ message LoginRequest {
 message LoginResponse {
   User user = 1;
   string token = 2;
-}
-
-message GetUserByIDRequest {
-  string id = 1;
-}
-
-message GetUserByIDResponse {
-  User user = 1;
-}
-
-message GetAllUsersRequest {}
-
-message GetAllUsersResponse {
-  repeated User user = 1;
 }
 
 message User {
