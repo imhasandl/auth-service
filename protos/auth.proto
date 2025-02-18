@@ -9,6 +9,8 @@ option go_package = "github.com/imhasandl/auth-service/protos";
 service AuthService {
   rpc Register (RegisterRequest) returns (RegisterResponse) {}
   rpc Login (LoginRequest) returns (LoginResponse) {}
+
+  rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse) {}
 }
 
 message RegisterRequest {
@@ -29,6 +31,17 @@ message LoginRequest {
 message LoginResponse {
   User user = 1;
   string token = 2;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+  string access_token = 1;   // The new access token
+  string refresh_token = 2;  // A *new* refresh token (optional but recommended)
+  google.protobuf.Timestamp expiry_time = 3; // Expiry time of the access token
+  string error = 4; // Error message in case of failure
 }
 
 message User {

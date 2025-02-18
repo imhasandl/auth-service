@@ -31,6 +31,11 @@ func main() {
 		log.Fatalf("Set db connection in env")
 	}
 
+	emailSecret := os.Getenv("EMAIL_SECRET")
+	if emailSecret == "" {
+		log.Fatalf("Set up Email Secret")
+	}
+
 	tokenSecret := os.Getenv("TOKEN_SECRET")
 	if tokenSecret == "" {
 		log.Fatalf("Set db connection in env")
@@ -48,7 +53,7 @@ func main() {
 	dbQueries := database.New(dbConn)
 	defer dbConn.Close()
 
-	server := server.NewServer(dbQueries, tokenSecret)
+	server := server.NewServer(dbQueries, tokenSecret, emailSecret)
 
 	s := grpc.NewServer()
 	pb.RegisterAuthServiceServer(s, server)
