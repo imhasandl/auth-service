@@ -1,6 +1,6 @@
 module github.com/imhasandl/auth-service
 
-go 1.23.5
+go 1.23.2
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
@@ -13,8 +13,8 @@ require (
 )
 
 require (
-	golang.org/x/net v0.35.0 // indirect
+	golang.org/x/net v0.32.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250212204824-5a70512c5d8b // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20241202173237-19429a94021a // indirect
 )
