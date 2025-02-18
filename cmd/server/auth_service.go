@@ -8,7 +8,6 @@ import (
 	"github.com/imhasandl/auth-service/cmd/helper/auth"
 	"github.com/imhasandl/auth-service/internal/database"
 	pb "github.com/imhasandl/auth-service/protos"
-	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -33,7 +32,7 @@ func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 		return nil, status.Errorf(codes.Internal, "username should be 5 characters long")
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.GetPassword()), bcrypt.DefaultCost)
+	hashedPassword, err := auth.HashPassword(req.GetPassword())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to hash password: %v - Register", err)
 	}
@@ -79,7 +78,7 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 	createdAtProto := timestamppb.New(user.CreatedAt) // Converts time.Time type into timespamppb
 	updatedAtProto := timestamppb.New(user.UpdatedAt) // Converts time.Time type into timespamppb
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.GetPassword()))
+	err = auth.CheckPassword(user.Password, req.GetPassword())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "invalid credentials: %v - Login", err)
 	}
