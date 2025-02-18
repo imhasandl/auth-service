@@ -12,17 +12,19 @@ import (
 
 type RefreshToken struct {
 	Token      string
-	UserID     uuid.NullUUID
+	UserID     uuid.UUID
 	ExpiryTime time.Time
 	CreatedAt  time.Time
 }
 
 type User struct {
-	ID        uuid.UUID
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Email     string
-	Password  string
-	Username  string
-	IsPremium bool
+	ID               uuid.UUID
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	Email            string
+	Password         string
+	Username         string
+	IsPremium        bool
+	VerificationCode int32
+	IsVerified       bool
 }

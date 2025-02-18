@@ -24,7 +24,7 @@ RETURNING token, user_id, expiry_time, created_at
 
 type RefreshTokenParams struct {
 	Token      string
-	UserID     uuid.NullUUID
+	UserID     uuid.UUID
 	ExpiryTime time.Time
 }
 

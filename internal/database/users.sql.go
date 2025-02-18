@@ -12,7 +12,7 @@ import (
 )
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (id, created_at, updated_at, email, password, username, is_premium)
+INSERT INTO users (id, created_at, updated_at, email, password, username, is_premium, verification_code, is_verified)
 VALUES (
    $1,
    NOW(),
@@ -20,17 +20,21 @@ VALUES (
    $2,
    $3,
    $4,
-   $5
+   $5,
+   $6,
+   $7
 )
-RETURNING id, created_at, updated_at, email, password, username, is_premium
+RETURNING id, created_at, updated_at, email, password, username, is_premium, verification_code, is_verified
 `
 
 type CreateUserParams struct {
-	ID        uuid.UUID
-	Email     string
-	Password  string
-	Username  string
-	IsPremium bool
+	ID               uuid.UUID
+	Email            string
+	Password         string
+	Username         string
+	IsPremium        bool
+	VerificationCode int32
+	IsVerified       bool
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -40,6 +44,8 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.Password,
 		arg.Username,
 		arg.IsPremium,
+		arg.VerificationCode,
+		arg.IsVerified,
 	)
 	var i User
 	err := row.Scan(
@@ -50,12 +56,14 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Password,
 		&i.Username,
 		&i.IsPremium,
+		&i.VerificationCode,
+		&i.IsVerified,
 	)
 	return i, err
 }
 
 const getUserByIdentifier = `-- name: GetUserByIdentifier :one
-SELECT id, created_at, updated_at, email, password, username, is_premium FROM users
+SELECT id, created_at, updated_at, email, password, username, is_premium, verification_code, is_verified FROM users
 WHERE email = $1 OR username = $2
 `
 
@@ -75,6 +83,35 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, arg GetUserByIdentifi
 		&i.Password,
 		&i.Username,
 		&i.IsPremium,
+		&i.VerificationCode,
+		&i.IsVerified,
 	)
 	return i, err
+}
+
+const storeVerificationCode = `-- name: StoreVerificationCode :exec
+UPDATE users 
+SET verification_code = $1, is_verified = false 
+WHERE id = $2
+`
+
+type StoreVerificationCodeParams struct {
+	VerificationCode int32
+	ID               uuid.UUID
+}
+
+func (q *Queries) StoreVerificationCode(ctx context.Context, arg StoreVerificationCodeParams) error {
+	_, err := q.db.ExecContext(ctx, storeVerificationCode, arg.VerificationCode, arg.ID)
+	return err
+}
+
+const verifyUser = `-- name: VerifyUser :exec
+UPDATE users 
+SET is_verified = true, verification_code = "no-code"
+WHERE email = $1
+`
+
+func (q *Queries) VerifyUser(ctx context.Context, email string) error {
+	_, err := q.db.ExecContext(ctx, verifyUser, email)
+	return err
 }
