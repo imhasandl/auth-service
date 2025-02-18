@@ -4,7 +4,7 @@ package auth;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/imhasandl/grpc-go/protos";
+option go_package = "github.com/imhasandl/auth-service/protos";
 
 service AuthService {
   rpc Register (RegisterRequest) returns (RegisterResponse) {}
