@@ -1,8 +1,10 @@
 package auth
 
 import (
-	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	"math/rand"
+	"net/smtp"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -29,7 +31,7 @@ func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (str
 	return token.SignedString(signingKey)
 }
 
-// Refresh token - 
+// Refresh token -
 func MakeRefreshToken() (string, error) {
 	token := make([]byte, 32)
 	_, err := rand.Read(token)
@@ -49,4 +51,31 @@ func HashPassword(password string) (string, error) {
 // CheckPassword checks if the provided password matches the hashed password
 func CheckPassword(hashedPassword, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+}
+
+// generateVerificationCode generates a random 4-digit verification code.
+func GenerateVerificationCode() int32 {
+	return int32(1000 + rand.Intn(9000))
+}
+
+
+// Send Email verification. smtp protocol used to send email.
+func SendVerificationEmail(email, emailSecret string, code int32) error {
+	from := "imhasandl04@gmail.com"
+	password := emailSecret
+	to := email
+	subject := "Email Verification"
+	body := fmt.Sprintf("Your verification code is: %d", code)
+	msg := "From: " + from + "\n" +
+		"To: " + to + "\n" +
+		"Subject: " + subject + "\n\n" +
+		body
+
+	auth := smtp.PlainAuth("", from, password, "smtp.gmail.com")
+	err := smtp.SendMail("smtp.gmail.com:587", auth, from, []string{to}, []byte(msg))
+	if err != nil {
+		return fmt.Errorf("failed to send email: %w", err)
+	}
+	
+	return nil
 }
