@@ -9,9 +9,11 @@ option go_package = "github.com/imhasandl/auth-service/protos";
 service AuthService {
   rpc Register (RegisterRequest) returns (RegisterResponse) {}
   rpc Login (LoginRequest) returns (LoginResponse) {}
+  
   rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse) {}
 
   rpc VerifyEmail (VerifyEmailRequest) returns (VerifyEmailResponse) {}
+  rpc SendVerifyCodeAgain (SendVerifyCodeAgainRequest) returns (SendVerifyCodeAgainResponse) {}
 }
 
 message RegisterRequest {
@@ -51,6 +53,15 @@ message VerifyEmailRequest {
 }
 
 message VerifyEmailResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message SendVerifyCodeAgainRequest {
+  string email = 1;
+}
+
+message SendVerifyCodeAgainResponse {
   bool success = 1;
   string message = 2;
 }

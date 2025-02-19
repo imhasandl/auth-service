@@ -44,7 +44,7 @@ func sendVerificationEmail(email, emailSecret string, code int32) error {
 	auth := smtp.PlainAuth("", from, password, "smtp.gmail.com")
 	err := smtp.SendMail("smtp.gmail.com:587", auth, from, []string{to}, []byte(msg))
 	if err != nil {
-		return fmt.Errorf("failed to send email: %w. Please ensure you are using an application-specific password.", err)
+		return fmt.Errorf("failed to send email: %w", err)
 	}
 	
 	return nil
@@ -142,6 +142,40 @@ func (s *server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*
 	return &pb.VerifyEmailResponse{
 		Success: true,
 		Message: "Email verified successfully",
+	}, nil
+}
+
+func (s *server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCodeAgainRequest) (*pb.SendVerifyCodeAgainResponse, error) {
+	userParams := database.GetUserByIdentifierParams{
+		Email:    req.GetEmail(),
+		Username: req.GetEmail(),
+	}
+	
+	user, err := s.db.GetUserByIdentifier(ctx, userParams)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "can't get user with identifier: %v - SendVerifyCodeAgain", err)
+	}
+
+	newVerifyCode := generateVerificationCode()
+
+	sendVerifyAgainParams := database.SendVerifyCodeAgainParams{
+		VerificationCode: newVerifyCode,
+		ID: user.ID,
+	}
+
+	err = s.db.SendVerifyCodeAgain(ctx, sendVerifyAgainParams)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to send verification code again: %v - SendVerifyCodeAgain", err)
+	}
+
+	err = sendVerificationEmail(req.GetEmail(), s.emailSecret, newVerifyCode)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to send verification email: %v - Register", err)
+	}
+
+	return &pb.SendVerifyCodeAgainResponse{
+		Success: true,
+		Message: "new verification code sent",
 	}, nil
 }
 

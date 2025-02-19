@@ -19,10 +19,15 @@ WHERE email = $1 OR username = $2;
 
 -- name: StoreVerificationCode :exec
 UPDATE users 
-SET verification_code = $1, is_verified = false 
+SET verification_code = $1, is_verified = FALSE
 WHERE id = $2;
 
 -- name: VerifyUser :exec
 UPDATE users 
-SET is_verified = true, verification_code = "no-code"
+SET is_verified = TRUE, verification_code = 0
 WHERE email = $1;
+
+-- name: SendVerifyCodeAgain :exec
+UPDATE users 
+SET verification_code = $1, is_verified = FALSE
+WHERE id = $2;
