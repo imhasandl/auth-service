@@ -2,9 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
-	"math/rand"
-	"net/smtp"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,32 +19,6 @@ type server struct {
 	db          *database.Queries
 	tokenSecret string
 	emailSecret string
-}
-
-// generateVerificationCode generates a random 4-digit verification code.
-func generateVerificationCode() int32 {
-	return int32(1000 + rand.Intn(9000))
-}
-
-// Send Email verification. smtp protocol used to send email.
-func sendVerificationEmail(email, emailSecret string, code int32) error {
-	from := "imhasandl04@gmail.com"
-	password := emailSecret
-	to := email
-	subject := "Email Verification"
-	body := fmt.Sprintf("Your verification code is: %d", code)
-	msg := "From: " + from + "\n" +
-		"To: " + to + "\n" +
-		"Subject: " + subject + "\n\n" +
-		body
-
-	auth := smtp.PlainAuth("", from, password, "smtp.gmail.com")
-	err := smtp.SendMail("smtp.gmail.com:587", auth, from, []string{to}, []byte(msg))
-	if err != nil {
-		return fmt.Errorf("failed to send email: %w", err)
-	}
-	
-	return nil
 }
 
 func NewServer(db *database.Queries, tokenSecret, emailSecret string) *server {
@@ -69,7 +40,7 @@ func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 		return nil, status.Errorf(codes.Internal, "failed to hash password: %v - Register", err)
 	}
 
-	verificationCode := generateVerificationCode()
+	verificationCode := auth.GenerateVerificationCode()
 
 	userParams := database.CreateUserParams{
 		ID:               uuid.New(),
@@ -96,7 +67,7 @@ func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 		return nil, status.Errorf(codes.Internal, "failed to store verification code: %v - Register", err)
 	}
 
-	err = sendVerificationEmail(req.GetEmail(), s.emailSecret, verificationCode)
+	err = auth.SendVerificationEmail(req.GetEmail(), s.emailSecret, verificationCode)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to send verification email: %v - Register", err)
 	}
@@ -156,7 +127,7 @@ func (s *server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCode
 		return nil, status.Errorf(codes.Internal, "can't get user with identifier: %v - SendVerifyCodeAgain", err)
 	}
 
-	newVerifyCode := generateVerificationCode()
+	newVerifyCode := auth.GenerateVerificationCode()
 
 	sendVerifyAgainParams := database.SendVerifyCodeAgainParams{
 		VerificationCode: newVerifyCode,
@@ -168,7 +139,7 @@ func (s *server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCode
 		return nil, status.Errorf(codes.Internal, "failed to send verification code again: %v - SendVerifyCodeAgain", err)
 	}
 
-	err = sendVerificationEmail(req.GetEmail(), s.emailSecret, newVerifyCode)
+	err = auth.SendVerificationEmail(req.GetEmail(), s.emailSecret, newVerifyCode)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to send verification email: %v - Register", err)
 	}
@@ -190,9 +161,6 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 		return nil, status.Errorf(codes.Internal, "can't get user with identifier: %v - Login", err)
 	}
 
-	createdAtProto := timestamppb.New(user.CreatedAt) // Converts time.Time type into timespamppb
-	updatedAtProto := timestamppb.New(user.UpdatedAt) // Converts time.Time type into timespamppb
-
 	err = auth.CheckPassword(user.Password, req.GetPassword())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "invalid credentials: %v - Login", err)
@@ -206,8 +174,8 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 	return &pb.LoginResponse{
 		User: &pb.User{
 			Id:        user.ID.String(),
-			CreatedAt: createdAtProto,
-			UpdatedAt: updatedAtProto,
+			CreatedAt: timestamppb.New(user.CreatedAt),
+			UpdatedAt: timestamppb.New(user.UpdatedAt),
 			Email:     user.Email,
 			Username:  user.Username,
 			IsPremium: user.IsPremium,
