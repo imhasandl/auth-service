@@ -40,7 +40,10 @@ func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 		return nil, status.Errorf(codes.Internal, "failed to hash password: %v - Register", err)
 	}
 
-	verificationCode := auth.GenerateVerificationCode()
+	verificationCode, err := auth.GenerateVerificationCode()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate verification code: %v - Register", err)
+	}
 
 	userParams := database.CreateUserParams{
 		ID:               uuid.New(),
@@ -121,17 +124,20 @@ func (s *server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCode
 		Email:    req.GetEmail(),
 		Username: req.GetEmail(),
 	}
-	
+
 	user, err := s.db.GetUserByIdentifier(ctx, userParams)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "can't get user with identifier: %v - SendVerifyCodeAgain", err)
 	}
 
-	newVerifyCode := auth.GenerateVerificationCode()
+	newVerifyCode, err := auth.GenerateVerificationCode()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate verification code: %v - Register", err)
+	}
 
 	sendVerifyAgainParams := database.SendVerifyCodeAgainParams{
 		VerificationCode: newVerifyCode,
-		ID: user.ID,
+		ID:               user.ID,
 	}
 
 	err = s.db.SendVerifyCodeAgain(ctx, sendVerifyAgainParams)

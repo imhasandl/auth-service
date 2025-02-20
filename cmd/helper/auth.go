@@ -1,9 +1,9 @@
 package auth
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
 	"net/smtp"
 	"time"
 
@@ -54,10 +54,16 @@ func CheckPassword(hashedPassword, password string) error {
 }
 
 // generateVerificationCode generates a random 4-digit verification code.
-func GenerateVerificationCode() int32 {
-	return int32(1000 + rand.Intn(9000))
+func GenerateVerificationCode() (int32, error) {
+   var code int32
+   b := make([]byte, 2)
+   _, err:= rand.Read(b)
+   if err!= nil {
+       return 0, err
+   }
+   code = 1000 + int32(b[0])%9000 // Convert the first byte to int32
+   return code, nil
 }
-
 
 // Send Email verification. smtp protocol used to send email.
 func SendVerificationEmail(email, emailSecret string, code int32) error {
@@ -76,6 +82,6 @@ func SendVerificationEmail(email, emailSecret string, code int32) error {
 	if err != nil {
 		return fmt.Errorf("failed to send email: %w", err)
 	}
-	
+
 	return nil
 }
