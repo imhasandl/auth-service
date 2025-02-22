@@ -6,7 +6,8 @@ CREATE TABLE posts (
    posted_by TEXT NOT NULL,
    body TEXT NOT NULL,
    likes INT NOT NULL DEFAULT 0,
-   views INT NOT NULL DEFAULT 0 
+   views INT NOT NULL DEFAULT 0,
+   liked_by TEXT[]
 );
 
 -- +goose Down
