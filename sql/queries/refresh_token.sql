@@ -6,3 +6,7 @@ VALUES (
    $3
 )
 RETURNING *;
+
+-- name: DeleteToken :exec
+DELETE FROM refresh_tokens
+WHERE user_id = $1;

@@ -223,3 +223,25 @@ func (s *server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) 
 		ExpiryTime:   timestamppb.New(refreshToken.ExpiryTime),
 	}, nil
 }
+
+func (s *server) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.LogoutResponse, error) {
+	accessToken, err := postService.GetBearerTokenFromGrpc(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "invalid token: %v - Logout", err)
+	}
+
+	userID, err := postService.ValidateJWT(accessToken, s.tokenSecret)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "can't get token from header: %v - Logout", err)
+	}
+
+	err = s.db.DeleteToken(ctx, userID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "can't delete token: %v - Logout", err)
+	}
+
+	return &pb.LogoutResponse{
+		Success: true,
+		Message: "User logged out complete",
+	}, nil
+}
