@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	auth "github.com/imhasandl/auth-service/cmd/helper"
+	auth "github.com/imhasandl/auth-service/cmd/auth"
+	"github.com/imhasandl/auth-service/cmd/helper"
 	"github.com/imhasandl/auth-service/internal/database"
 	pb "github.com/imhasandl/auth-service/protos"
 	postService "github.com/imhasandl/post-service/cmd/helper"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -32,17 +32,17 @@ func NewServer(db *database.Queries, tokenSecret, emailSecret string) *server {
 
 func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	if len(req.GetUsername()) < 5 {
-		return nil, status.Errorf(codes.Internal, "username should be 5 characters long")
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "username should be 5 characters long", nil)
 	}
 
 	hashedPassword, err := auth.HashPassword(req.GetPassword())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to hash password: %v - Register", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to hash password - Register", err)
 	}
 
 	verificationCode, err := auth.GenerateVerificationCode()
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to generate verification code: %v - Register", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to generate verification code - Register", err)
 	}
 
 	userParams := database.CreateUserParams{
@@ -57,7 +57,7 @@ func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 
 	user, err := s.db.CreateUser(ctx, userParams)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "can't create user: %v - Register", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't create user - Register", err)
 	}
 
 	verifyParams := database.StoreVerificationCodeParams{
@@ -67,12 +67,12 @@ func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 
 	err = s.db.StoreVerificationCode(ctx, verifyParams)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to store verification code: %v - Register", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to store verification code - Register", err)
 	}
 
 	err = auth.SendVerificationEmail(req.GetEmail(), s.emailSecret, verificationCode)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to send verification email: %v - Register", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to send verification email - Register", err)
 	}
 
 	return &pb.RegisterResponse{
@@ -97,20 +97,20 @@ func (s *server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*
 
 	user, err := s.db.GetUserByIdentifier(ctx, userParams)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "can't get user with identifier: %v - VerifyEmail", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't get user with identifier - VerifyEmail", err)
 	}
 
 	if user.IsVerified {
-		return nil, status.Errorf(codes.AlreadyExists, "email already verified: %v - VerifyEmail", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.AlreadyExists, "email already verified - VerifyEmail", nil)
 	}
 
 	if user.VerificationCode != req.GetVerificationCode() {
-		return nil, status.Errorf(codes.Unauthenticated, "invalid verification code: %v - VerifyEmail", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Unauthenticated, "invalid verification code - VerifyEmail", nil)
 	}
 
 	err = s.db.VerifyUser(ctx, req.GetEmail())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to verify user: %v - VerifyEmail", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to verify user - VerifyEmail", err)
 	}
 
 	return &pb.VerifyEmailResponse{
@@ -127,12 +127,12 @@ func (s *server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCode
 
 	user, err := s.db.GetUserByIdentifier(ctx, userParams)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "can't get user with identifier: %v - SendVerifyCodeAgain", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't get user with identifier - SendVerifyCodeAgain", err)
 	}
 
 	newVerifyCode, err := auth.GenerateVerificationCode()
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to generate verification code: %v - Register", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to generate verification code - SendVerifyCodeAgain", err)
 	}
 
 	sendVerifyAgainParams := database.SendVerifyCodeAgainParams{
@@ -142,12 +142,12 @@ func (s *server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCode
 
 	err = s.db.SendVerifyCodeAgain(ctx, sendVerifyAgainParams)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to send verification code again: %v - SendVerifyCodeAgain", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to send verification code again - SendVerifyCodeAgain", err)
 	}
 
 	err = auth.SendVerificationEmail(req.GetEmail(), s.emailSecret, newVerifyCode)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to send verification email: %v - Register", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to send verification email - SendVerifyCodeAgain", err)
 	}
 
 	return &pb.SendVerifyCodeAgainResponse{
@@ -164,17 +164,17 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 
 	user, err := s.db.GetUserByIdentifier(ctx, userParams)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "can't get user with identifier: %v - Login", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't get user with identifier - Login", err)
 	}
 
 	err = auth.CheckPassword(user.Password, req.GetPassword())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "invalid credentials: %v - Login", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Unauthenticated, "invalid credentials - Login", err)
 	}
 
 	accessToken, err := auth.MakeJWT(user.ID, s.tokenSecret, time.Hour)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "can't create token: %v - Login", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't create token - Login", err)
 	}
 
 	return &pb.LoginResponse{
@@ -193,17 +193,17 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 func (s *server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
 	accessToken, err := postService.GetBearerTokenFromGrpc(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "invalid token: %v - RefreshToken", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Unauthenticated, "invalid token - RefreshToken", err)
 	}
 
 	userID, err := postService.ValidateJWT(accessToken, s.tokenSecret)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "can't get token from header: %v - RefreshToken", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't get token from header - RefreshToken", err)
 	}
 
 	newAccessToken, err := auth.MakeJWT(userID, s.tokenSecret, time.Hour)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "can't create new access token: %v - RefreshToken", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't create new access token - RefreshToken", err)
 	}
 
 	refreshTokenParams := database.RefreshTokenParams{
@@ -214,7 +214,7 @@ func (s *server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) 
 
 	refreshToken, err := s.db.RefreshToken(ctx, refreshTokenParams)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "can't store refresh token: %v - RefreshToken", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't store refresh token - RefreshToken", err)
 	}
 
 	return &pb.RefreshTokenResponse{
@@ -227,17 +227,17 @@ func (s *server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) 
 func (s *server) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.LogoutResponse, error) {
 	accessToken, err := postService.GetBearerTokenFromGrpc(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "invalid token: %v - Logout", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Unauthenticated, "invalid token - Logout", err)
 	}
 
 	userID, err := postService.ValidateJWT(accessToken, s.tokenSecret)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "can't get token from header: %v - Logout", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't get token from header - Logout", err)
 	}
 
 	err = s.db.DeleteToken(ctx, userID)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "can't delete token: %v - Logout", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't delete token - Logout", err)
 	}
 
 	return &pb.LogoutResponse{
