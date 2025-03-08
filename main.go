@@ -18,7 +18,7 @@ import (
 
 func main() {
 	if err := godotenv.Load(".env"); err != nil {
-		log.Fatal("Error loading .env file")
+		log.Println("Error loading .env file")
 	}
 
 	port := os.Getenv("PORT")
@@ -31,9 +31,14 @@ func main() {
 		log.Fatalf("Set db connection in env")
 	}
 
+	email := os.Getenv("EMAIL")
+	if email == "" {
+		log.Fatal("Set up Email in env")
+	}
+
 	emailSecret := os.Getenv("EMAIL_SECRET")
 	if emailSecret == "" {
-		log.Fatalf("Set up Email Secret")
+		log.Fatalf("Set up Email Secret in env")
 	}
 
 	tokenSecret := os.Getenv("TOKEN_SECRET")
@@ -53,7 +58,7 @@ func main() {
 	dbQueries := database.New(dbConn)
 	defer dbConn.Close()
 
-	server := server.NewServer(dbQueries, tokenSecret, emailSecret)
+	server := server.NewServer(dbQueries, tokenSecret, email, emailSecret)
 
 	s := grpc.NewServer()
 	pb.RegisterAuthServiceServer(s, server)

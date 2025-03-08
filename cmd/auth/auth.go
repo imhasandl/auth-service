@@ -66,8 +66,8 @@ func GenerateVerificationCode() (int32, error) {
 }
 
 // Send Email verification. smtp protocol used to send email.
-func SendVerificationEmail(email, emailSecret string, code int32) error {
-	from := "imhasandl04@gmail.com"
+func SendVerificationEmail(email, emailSender, emailSecret string, code int32) error {
+	from := emailSender
 	password := emailSecret
 	to := email
 	subject := "Email Verification"
