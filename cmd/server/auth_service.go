@@ -18,14 +18,16 @@ type server struct {
 	pb.UnimplementedAuthServiceServer
 	db          *database.Queries
 	tokenSecret string
+	email       string
 	emailSecret string
 }
 
-func NewServer(db *database.Queries, tokenSecret, emailSecret string) *server {
+func NewServer(db *database.Queries, tokenSecret, email, emailSecret string) *server {
 	return &server{
 		pb.UnimplementedAuthServiceServer{},
 		db,
 		tokenSecret,
+		email,
 		emailSecret,
 	}
 }
@@ -70,7 +72,7 @@ func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to store verification code - Register", err)
 	}
 
-	err = auth.SendVerificationEmail(req.GetEmail(), s.emailSecret, verificationCode)
+	err = auth.SendVerificationEmail(req.GetEmail(), s.email, s.emailSecret, verificationCode)
 	if err != nil {
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to send verification email - Register", err)
 	}
@@ -145,7 +147,7 @@ func (s *server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCode
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to send verification code again - SendVerifyCodeAgain", err)
 	}
 
-	err = auth.SendVerificationEmail(req.GetEmail(), s.emailSecret, newVerifyCode)
+	err = auth.SendVerificationEmail(req.GetEmail(), s.email, s.emailSecret, newVerifyCode)
 	if err != nil {
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to send verification email - SendVerifyCodeAgain", err)
 	}
