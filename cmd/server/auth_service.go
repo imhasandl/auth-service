@@ -9,7 +9,6 @@ import (
 	"github.com/imhasandl/auth-service/cmd/helper"
 	"github.com/imhasandl/auth-service/internal/database"
 	pb "github.com/imhasandl/auth-service/protos"
-	postService "github.com/imhasandl/post-service/cmd/helper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -179,6 +178,22 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't create token - Login", err)
 	}
 
+	refreshToken, err := auth.MakeRefreshToken()
+	if err != nil {
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't create refresh token - Login", err)
+	}
+
+	refreshTokenParams := database.RefreshTokenParams{
+		Token:      refreshToken,
+		UserID:     user.ID,
+		ExpiryTime: time.Now().Add(7 * 24 * time.Hour),
+	}
+
+	_, err = s.db.RefreshToken(ctx, refreshTokenParams)
+	if err != nil {
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't store refresh token - Login", err)
+	}
+
 	return &pb.LoginResponse{
 		User: &pb.User{
 			Id:        user.ID.String(),
@@ -188,56 +203,67 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 			Username:  user.Username,
 			IsPremium: user.IsPremium,
 		},
-		Token: accessToken,
+		Token:        accessToken,
+		RefreshToken: refreshToken,
 	}, nil
 }
 
 func (s *server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
-	accessToken, err := postService.GetBearerTokenFromGrpc(ctx)
-	if err != nil {
-		return nil, helper.RespondWithErrorGRPC(ctx, codes.Unauthenticated, "invalid token - RefreshToken", err)
+	refreshToken := req.GetRefreshToken()
+	if refreshToken == "" {
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.InvalidArgument, "refresh token is required - RefreshToken", nil)
 	}
 
-	userID, err := postService.ValidateJWT(accessToken, s.tokenSecret)
+	storedToken, err := s.db.GetRefreshToken(ctx, refreshToken)
 	if err != nil {
-		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't get token from header - RefreshToken", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't get refresh token - RefreshToken", err)
 	}
 
-	newAccessToken, err := auth.MakeJWT(userID, s.tokenSecret, time.Hour)
+	// Verify token is not expired
+	if time.Now().After(storedToken.ExpiryTime) {
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Unauthenticated, "refresh token expired - RefreshToken", nil)
+	}
+
+	newAccessToken, err := auth.MakeJWT(storedToken.UserID, s.tokenSecret, time.Hour)
 	if err != nil {
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't create new access token - RefreshToken", err)
 	}
 
-	refreshTokenParams := database.RefreshTokenParams{
-		Token:      newAccessToken,
-		UserID:     userID,
-		ExpiryTime: time.Now().Add(24 * time.Hour),
+	newRefreshToken, err := auth.MakeRefreshToken()
+	if err != nil {
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't create new refresh token - RefreshToken", err)
 	}
 
-	refreshToken, err := s.db.RefreshToken(ctx, refreshTokenParams)
+	err = s.db.DeleteTokenByUserID(ctx, storedToken.UserID)
+	if err != nil {
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't delete old token - RefreshToken", err)
+	}
+
+	refreshTokenParams := database.RefreshTokenParams{
+		Token:      newRefreshToken,
+		UserID:     storedToken.UserID,
+		ExpiryTime: time.Now().Add(7 * 24 * time.Hour),
+	}
+
+	_, err = s.db.RefreshToken(ctx, refreshTokenParams)
 	if err != nil {
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't store refresh token - RefreshToken", err)
 	}
 
 	return &pb.RefreshTokenResponse{
-		AccessToken:  accessToken,
-		RefreshToken: newAccessToken,
-		ExpiryTime:   timestamppb.New(refreshToken.ExpiryTime),
+		AccessToken:  newAccessToken,
+		RefreshToken: newRefreshToken,
+		ExpiryTime:   timestamppb.New(time.Now().Add(time.Hour)),
 	}, nil
 }
 
 func (s *server) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.LogoutResponse, error) {
-	accessToken, err := postService.GetBearerTokenFromGrpc(ctx)
-	if err != nil {
-		return nil, helper.RespondWithErrorGRPC(ctx, codes.Unauthenticated, "invalid token - Logout", err)
+	refreshToken := req.GetRefreshToken()
+	if refreshToken == "" {
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.InvalidArgument, "refresh token is required - Logout", nil)
 	}
 
-	userID, err := postService.ValidateJWT(accessToken, s.tokenSecret)
-	if err != nil {
-		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't get token from header - Logout", err)
-	}
-
-	err = s.db.DeleteToken(ctx, userID)
+	err := s.db.DeleteTokenByToken(ctx, refreshToken)
 	if err != nil {
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't delete token - Logout", err)
 	}
