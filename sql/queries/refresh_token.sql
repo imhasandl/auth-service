@@ -7,6 +7,15 @@ VALUES (
 )
 RETURNING *;
 
--- name: DeleteToken :exec
+-- name: GetRefreshToken :one
+SELECT * FROM refresh_tokens
+WHERE token = $1;
+
+-- name: DeleteTokenByUserID :exec
 DELETE FROM refresh_tokens
 WHERE user_id = $1;
+
+-- name: DeleteTokenByToken :exec
+DELETE FROM refresh_tokens
+WHERE token = $1;
+
