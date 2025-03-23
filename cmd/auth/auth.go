@@ -55,14 +55,14 @@ func CheckPassword(hashedPassword, password string) error {
 
 // generateVerificationCode generates a random 4-digit verification code.
 func GenerateVerificationCode() (int32, error) {
-   var code int32
-   b := make([]byte, 2)
-   _, err:= rand.Read(b)
-   if err!= nil {
-       return 0, err
-   }
-   code = 1000 + int32(b[0])%9000 // Convert the first byte to int32
-   return code, nil
+	var code int32
+	b := make([]byte, 4)
+	_, err := rand.Read(b)
+	if err != nil {
+		return 0, err
+	}
+	code = 1000 + (int32(b[0]) | int32(b[1])<<8 | int32(b[2])<<16 | int32(b[3])<<24) % 9000
+	return code, nil
 }
 
 // Send Email verification. smtp protocol used to send email.
