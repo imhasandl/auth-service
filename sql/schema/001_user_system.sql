@@ -10,6 +10,7 @@ CREATE TABLE users (
    subscribed_to UUID[],
    is_premium BOOLEAN NOT NULL DEFAULT FALSE,
    verification_code INT NOT NULL,
+   verification_expire_time TIMESTAMP NOT NULL,
    is_verified BOOLEAN NOT NULL DEFAULT FALSE
 );
 

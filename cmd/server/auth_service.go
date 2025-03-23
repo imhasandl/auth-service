@@ -93,7 +93,7 @@ func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 func (s *server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*pb.VerifyEmailResponse, error) {
 	userParams := database.GetUserByIdentifierParams{
 		Email:    req.GetEmail(),
-		Username: req.GetEmail(),
+		Username: "",
 	}
 
 	user, err := s.db.GetUserByIdentifier(ctx, userParams)
@@ -112,6 +112,10 @@ func (s *server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*
 	err = s.db.VerifyUser(ctx, req.GetEmail())
 	if err != nil {
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to verify user - VerifyEmail", err)
+	}
+
+	if user.VerificationExpireTime.Before(time.Now()) {
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.DeadlineExceeded, "verification code expired - VerifyEmail", nil)
 	}
 
 	return &pb.VerifyEmailResponse{

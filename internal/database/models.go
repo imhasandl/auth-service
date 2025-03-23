@@ -61,15 +61,16 @@ type Report struct {
 }
 
 type User struct {
-	ID               uuid.UUID
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	Email            string
-	Password         string
-	Username         string
-	Subscribers      []uuid.UUID
-	SubscribedTo     []uuid.UUID
-	IsPremium        bool
-	VerificationCode int32
-	IsVerified       bool
+	ID                     uuid.UUID
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
+	Email                  string
+	Password               string
+	Username               string
+	Subscribers            []uuid.UUID
+	SubscribedTo           []uuid.UUID
+	IsPremium              bool
+	VerificationCode       int32
+	VerificationExpireTime time.Time
+	IsVerified             bool
 }

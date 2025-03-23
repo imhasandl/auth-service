@@ -25,7 +25,7 @@ VALUES (
    $6,
    $7
 )
-RETURNING id, created_at, updated_at, email, password, username, subscribers, subscribed_to, is_premium, verification_code, is_verified
+RETURNING id, created_at, updated_at, email, password, username, subscribers, subscribed_to, is_premium, verification_code, verification_expire_time, is_verified
 `
 
 type CreateUserParams struct {
@@ -60,13 +60,14 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		pq.Array(&i.SubscribedTo),
 		&i.IsPremium,
 		&i.VerificationCode,
+		&i.VerificationExpireTime,
 		&i.IsVerified,
 	)
 	return i, err
 }
 
 const getUserByIdentifier = `-- name: GetUserByIdentifier :one
-SELECT id, created_at, updated_at, email, password, username, subscribers, subscribed_to, is_premium, verification_code, is_verified FROM users
+SELECT id, created_at, updated_at, email, password, username, subscribers, subscribed_to, is_premium, verification_code, verification_expire_time, is_verified FROM users
 WHERE email = $1 OR username = $2
 `
 
@@ -89,6 +90,7 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, arg GetUserByIdentifi
 		pq.Array(&i.SubscribedTo),
 		&i.IsPremium,
 		&i.VerificationCode,
+		&i.VerificationExpireTime,
 		&i.IsVerified,
 	)
 	return i, err
