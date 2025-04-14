@@ -1,6 +1,5 @@
-gRPC Service in go
-
-
-Stack
-
-go postgresqq grpc sqlc goose migration jwt 
+[![CI](https://github.com/imhasandl/auth-service/actions/workflows/ci.yml/badge.svg)](https://github.com/imhasandl/auth-service/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/imhasandl/auth-service)](https://goreportcard.com/report/github.com/imhasandl/auth-service)
+[![GoDoc](https://godoc.org/github.com/imhasandl/auth-service?status.svg)](https://godoc.org/github.com/imhasandl/auth-service)
+[![Coverage](https://codecov.io/gh/imhasandl/auth-service/branch/main/graph/badge.svg)](https://codecov.io/gh/imhasandl/auth-service)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/imhasandl/auth-service)](https://golang.org/doc/devel/release.html)
