@@ -12,6 +12,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// TokenType represents the type of authentication token
 type TokenType string
 
 const (
@@ -19,7 +20,7 @@ const (
 	TokenTypeAccess TokenType = "media-access"
 )
 
-// Generates Token -
+// MakeJWT generates a JWT token for the specified user ID
 func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
 	signingKey := []byte(tokenSecret)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
@@ -31,7 +32,7 @@ func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (str
 	return token.SignedString(signingKey)
 }
 
-// Refresh token -
+// MakeRefreshToken generates a secure random token for refresh authentication
 func MakeRefreshToken() (string, error) {
 	token := make([]byte, 32)
 	_, err := rand.Read(token)
@@ -53,7 +54,7 @@ func CheckPassword(hashedPassword, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 }
 
-// generateVerificationCode generates a random 4-digit verification code.
+// GenerateVerificationCode generates a random 4-digit verification code
 func GenerateVerificationCode() (int32, error) {
 	var code int32
 	b := make([]byte, 4)
@@ -61,11 +62,11 @@ func GenerateVerificationCode() (int32, error) {
 	if err != nil {
 		return 0, err
 	}
-	code = 1000 + (int32(b[0]) | int32(b[1])<<8 | int32(b[2])<<16 | int32(b[3])<<24) % 9000
+	code = 1000 + (int32(b[0])|int32(b[1])<<8|int32(b[2])<<16|int32(b[3])<<24)%9000
 	return code, nil
 }
 
-// Send Email verification. smtp protocol used to send email.
+// SendVerificationEmail sends an email with a verification code using SMTP protocol
 func SendVerificationEmail(email, emailSender, emailSecret string, code int32) error {
 	from := emailSender
 	password := emailSecret

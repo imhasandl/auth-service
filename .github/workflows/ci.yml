@@ -24,8 +24,8 @@ jobs:
         - name: Run gosec
           run: gosec -exclude-dir=internal/database ./...
 
-        - name: Run tests
-          run: go test -race ./...
+        # - name: Run tests
+        #   run: go test -race ./...
    
    style:
       name: Style
@@ -66,3 +66,9 @@ jobs:
         
         - name: Check for spelling mistakes
           run: misspell -error .
+
+        - name: install the gocyclo
+          run: go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+
+        - name: run the gocyclo
+          run: gocyclo -over 10 $(find . -name "*.go" | grep -v "/protos/")

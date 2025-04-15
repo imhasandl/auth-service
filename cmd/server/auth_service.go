@@ -13,7 +13,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type server struct {
+// Server implements the AuthService gRPC interface
+type Server struct {
 	pb.UnimplementedAuthServiceServer
 	db          *database.Queries
 	tokenSecret string
@@ -21,8 +22,9 @@ type server struct {
 	emailSecret string
 }
 
-func NewServer(db *database.Queries, tokenSecret, email, emailSecret string) *server {
-	return &server{
+// NewServer creates and initializes a new AuthService server instance
+func NewServer(db *database.Queries, tokenSecret, email, emailSecret string) *Server {
+	return &Server{
 		pb.UnimplementedAuthServiceServer{},
 		db,
 		tokenSecret,
@@ -31,7 +33,10 @@ func NewServer(db *database.Queries, tokenSecret, email, emailSecret string) *se
 	}
 }
 
-func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
+// Register handles user registration by validating input data, creating a new user record,
+// generating a verification code, and sending it to the user's email for account verification.
+// It returns the created user information on success or an appropriate error on failure.
+func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	if len(req.GetUsername()) < 5 {
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "username should be 5 characters long", nil)
 	}
@@ -90,7 +95,10 @@ func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 	}, nil
 }
 
-func (s *server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*pb.VerifyEmailResponse, error) {
+// VerifyEmail validates the verification code provided by the user against the one stored in the database.
+// If the code is valid and not expired, it marks the user's email as verified.
+// It returns a success response or an appropriate error on failure.
+func (s *Server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*pb.VerifyEmailResponse, error) {
 	userParams := database.GetUserByIdentifierParams{
 		Email:    req.GetEmail(),
 		Username: "",
@@ -124,7 +132,10 @@ func (s *server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*
 	}, nil
 }
 
-func (s *server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCodeAgainRequest) (*pb.SendVerifyCodeAgainResponse, error) {
+// SendVerifyCodeAgain generates a new verification code for a user and sends it to their email.
+// This is used when the original verification code expired or was lost.
+// It returns a success response or an appropriate error on failure.
+func (s *Server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCodeAgainRequest) (*pb.SendVerifyCodeAgainResponse, error) {
 	userParams := database.GetUserByIdentifierParams{
 		Email:    req.GetEmail(),
 		Username: req.GetEmail(),
@@ -161,7 +172,10 @@ func (s *server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCode
 	}, nil
 }
 
-func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
+// Login authenticates a user using their email/username and password.
+// On successful authentication, it generates JWT access and refresh tokens.
+// It returns the user information along with the tokens or an appropriate error on failure.
+func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
 	userParams := database.GetUserByIdentifierParams{
 		Email:    req.GetIdentifier(),
 		Username: req.GetIdentifier(),
@@ -212,7 +226,10 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 	}, nil
 }
 
-func (s *server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
+// RefreshToken validates a refresh token and issues a new access token and refresh token pair.
+// It invalidates the old refresh token to implement token rotation security.
+// It returns the new tokens or an appropriate error if the token is invalid or expired.
+func (s *Server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
 	refreshToken := req.GetRefreshToken()
 	if refreshToken == "" {
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.InvalidArgument, "refresh token is required - RefreshToken", nil)
@@ -261,7 +278,10 @@ func (s *server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) 
 	}, nil
 }
 
-func (s *server) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.LogoutResponse, error) {
+// Logout invalidates a user's refresh token, effectively ending their session.
+// It deletes the token from the database to prevent its future use.
+// It returns a success response or an appropriate error on failure.
+func (s *Server) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.LogoutResponse, error) {
 	refreshToken := req.GetRefreshToken()
 	if refreshToken == "" {
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.InvalidArgument, "refresh token is required - Logout", nil)
