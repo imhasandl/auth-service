@@ -135,7 +135,7 @@ Verifies a user's email address using the verification code sent to their email.
 ```json
 {
   "email": "user email",
-  "verification_code": 1234 // the numeric code sent to the user's email
+  "verification_code": "the numeric code sent to the user's email"
 }
 ```
 
@@ -143,8 +143,8 @@ Verifies a user's email address using the verification code sent to their email.
 
 ```json
 {
-  "success": true, // boolean indicating if verification was successful
-  "message": "Email verified successfully" // status message
+  "success": "boolean indicating if verification was successful",
+  "message": "Email verified successfully"
 }
 ```
 
@@ -166,8 +166,8 @@ Requests a new verification code when the original code expires or gets lost.
 
 ```json
 {
-  "success": true, // boolean indicating if new code was sent successfully
-  "message": "new verification code sent" // status message
+  "success": "boolean indicating if new code was sent successfully",
+  "message": "new verification code sent"
 }
 ```
 
@@ -192,7 +192,7 @@ Generates a new access token using a valid refresh token.
   "access_token": "new JWT access token",
   "refresh_token": "new refresh token",
   "expiry_time": "timestamp when the access token will expire",
-  "error": "" // contains error message if any
+  "error": "contains error message if any" 
 }
 ```
 
@@ -214,8 +214,8 @@ Invalidates a user's refresh token to log them out.
 
 ```json
 {
-  "success": true, // boolean indicating if logout was successful
-  "message": "User logged out complete" // status message
+  "success": "boolean indicating if logout was successful",
+  "message": "User logged out complete"
 }
 ```
 
