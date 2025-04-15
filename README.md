@@ -55,7 +55,7 @@ The service implements the following gRPC methods:
 
 ### Register
 
-Registers users credentials and stores them into a database.
+Creates a new user account with the provided credentials. The service validates the input data, securely hashes the password using bcrypt, generates a verification code, and sends it to the user's email address for account verification. The user information is stored in the database with verification status set to false until the user completes email verification.
 
 #### Request format
 
@@ -92,7 +92,7 @@ Registers users credentials and stores them into a database.
 
 ### Login
 
-Let the user to log in.
+Authenticates a user using their email/username and password. The service validates credentials against the stored hashed password, generates a JWT access token (valid for 1 hour) and a refresh token (valid for 7 days) upon successful authentication. The tokens are used for subsequent authorized API calls and maintaining user sessions.
 
 #### Request format
 
@@ -124,5 +124,110 @@ Let the user to log in.
 }
 ```
 
+---
 
+### VerifyEmail
+
+Verifies a user's email address using the verification code sent to their email.
+
+#### Request format
+
+```json
+{
+  "email": "user email",
+  "verification_code": 1234 // the numeric code sent to the user's email
+}
+```
+
+#### Response format
+
+```json
+{
+  "success": true, // boolean indicating if verification was successful
+  "message": "Email verified successfully" // status message
+}
+```
+
+---
+
+### SendVerifyCodeAgain
+
+Requests a new verification code when the original code expires or gets lost.
+
+#### Request format
+
+```json
+{
+  "email": "user email"
+}
+```
+
+#### Response format
+
+```json
+{
+  "success": true, // boolean indicating if new code was sent successfully
+  "message": "new verification code sent" // status message
+}
+```
+
+---
+
+### RefreshToken
+
+Generates a new access token using a valid refresh token.
+
+#### Request format
+
+```json
+{
+  "refresh_token": "user's refresh token"
+}
+```
+
+#### Response format
+
+```json
+{
+  "access_token": "new JWT access token",
+  "refresh_token": "new refresh token",
+  "expiry_time": "timestamp when the access token will expire",
+  "error": "" // contains error message if any
+}
+```
+
+---
+
+### Logout
+
+Invalidates a user's refresh token to log them out.
+
+#### Request format
+
+```json
+{
+  "refresh_token": "user's refresh token"
+}
+```
+
+#### Response format
+
+```json
+{
+  "success": true, // boolean indicating if logout was successful
+  "message": "User logged out complete" // status message
+}
+```
+
+----
+
+## Running the Service
+
+```bash
+go run cmd/main.go
+```
+
+## Docker Support
+
+The service can be run as part of a Docker Compose setup along with other microservices. When using Docker, make sure to use the Docker Compose specific DB_URL configuration.
 
