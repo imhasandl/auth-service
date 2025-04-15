@@ -10,19 +10,22 @@ jobs:
       runs-on: ubuntu-latest
       
       steps:
-         - name: Check out code
-           uses: actions/checkout@v4
-         
-         - name: Set up Go
-           uses: actions/setup-go@v5
-           with:
-               go-version: '1.23.5'
+        - name: Check out code
+          uses: actions/checkout@v4
+        
+        - name: Set up Go
+          uses: actions/setup-go@v5
+          with:
+              go-version: '1.23.5'
 
-         - name: Install gosec
-           run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+        - name: Install gosec
+          run: go install github.com/securego/gosec/v2/cmd/gosec@latest
 
-         - name: Run gosec
-           run: gosec -exclude-dir=internal/database ./...
+        - name: Run gosec
+          run: gosec -exclude-dir=internal/database ./...
+
+        - name: Run tests
+          run: go test -race ./...
    
    style:
       name: Style
@@ -37,5 +40,29 @@ jobs:
           with:
             go-version: '1.23.2'
   
+        - name: Format code
+          run: gofmt -s -w .
+            
         - name: Check formatting
           run: go fmt ./...
+
+        - name: Detect potential issues
+          run: go vet ./...
+        
+        - name: Install golint 
+          run: go install golang.org/x/lint/golint@latest
+        
+        - name: Run golint to ensure code style consistency
+          run: golint -set_exit_status ./...
+
+        - name: Install ineffectual assignments checker
+          run: go install github.com/gordonklaus/ineffassign@latest
+        
+        - name: Run check for ineffectual assignments
+          run: ineffassign ./...
+
+        - name: Install check spelling mistakes library
+          run: go install github.com/client9/misspell/cmd/misspell@latest
+        
+        - name: Check for spelling mistakes
+          run: misspell -error .
