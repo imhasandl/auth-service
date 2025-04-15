@@ -40,8 +40,14 @@ jobs:
           with:
             go-version: '1.23.2'
   
-        - name: Format code
-          run: gofmt -s -w .
+        - name: Check code formatting with gofmt
+          run: |
+            if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+              echo "The following files have formatting issues:"
+              gofmt -s -l .
+              echo "Please run 'gofmt -s -w .' to fix these issues"
+              exit 1
+            fi
             
         - name: Check formatting
           run: go fmt ./...
