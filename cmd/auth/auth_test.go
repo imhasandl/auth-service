@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHashAndCheckPassword(t *testing.T){
+func TestHashAndCheckPassword(t *testing.T) {
 	password := "testPassword123"
 
 	// Test password hashing
