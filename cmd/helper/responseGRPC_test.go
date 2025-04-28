@@ -14,25 +14,25 @@ import (
 func TestRespondWithErrorGRPC(t *testing.T) {
 	ctx := context.Background()
 
-	testCases := []struct{
-		name string
-		code codes.Code
-		message string
-		err error
+	testCases := []struct {
+		name     string
+		code     codes.Code
+		message  string
+		err      error
 		expected string
 	}{
 		{
-			name: "Internal error underlying error",
-			code: codes.Internal,
-			message: "database error",
-			err: errors.New("connection failed"),
+			name:     "Internal error underlying error",
+			code:     codes.Internal,
+			message:  "database error",
+			err:      errors.New("connection failed"),
 			expected: "database error",
 		},
 		{
-			name: "Not found error without underlying error",
-			code: codes.NotFound,
-			message: "user not found",
-			err: nil,
+			name:     "Not found error without underlying error",
+			code:     codes.NotFound,
+			message:  "user not found",
+			err:      nil,
 			expected: "user not found",
 		},
 	}
