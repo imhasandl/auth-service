@@ -78,21 +78,16 @@ func TestRegister(t *testing.T) {
 		},
 	}
 
-	// Execute each test case
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup
 			mockDB := new(mocks.MockQueries)
 			server := NewServer(mockDB, "test-secret", "test@example.com", "email-secret")
 			ctx := context.Background()
 
-			// Configure mocks based on the test case
 			tc.mockSetup(mockDB)
 
-			// Execute the test
 			response, err := server.Register(ctx, tc.request)
 
-			// Assert results
 			if tc.expectedError {
 				assert.Error(t, err)
 				statusErr, ok := status.FromError(err)
@@ -105,6 +100,130 @@ func TestRegister(t *testing.T) {
 				assert.NotNil(t, response)
 				assert.Equal(t, tc.request.Email, response.User.Email)
 				assert.Equal(t, tc.request.Username, response.User.Username)
+			}
+			mockDB.AssertExpectations(t)
+		})
+	}
+}
+
+func TestVerifyEmail(t *testing.T) {
+	testCases := []struct {
+		name          string
+		request       *pb.VerifyEmailRequest
+		mockSetup     func(mockDB *mocks.MockQueries)
+		expectedError bool
+		errorCode     codes.Code
+		errorMsg      string
+	}{
+		{
+			name: "successfull verification",
+			request: &pb.VerifyEmailRequest{
+				Email:            "test@example.com",
+				VerificationCode: 1234,
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				mockDB.On("GetUserByIdentifier", mock.Anything, database.GetUserByIdentifierParams{
+					Email:    "test@example.com",
+					Username: "",
+				}).Return(database.User{
+					ID:                     uuid.New(),
+					Email:                  "test@example.com",
+					Username:               "testuser",
+					VerificationCode:       1234,
+					IsVerified:             false,
+					VerificationExpireTime: time.Now().Add(time.Hour), // Not expired
+				}, nil)
+
+				mockDB.On("VerifyUser", mock.Anything, "test@example.com").Return(nil)
+			},
+			expectedError: false,
+		},
+		{
+			name: "user not found",
+			request: &pb.VerifyEmailRequest{
+				Email:            "notfound@example.com",
+				VerificationCode: 1234,
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{}, errors.New("user not found"))
+			},
+			expectedError: true,
+			errorCode:     codes.NotFound,
+			errorMsg:      "can't get user with identifier",
+		},
+		{
+			name: "already verified",
+			request: &pb.VerifyEmailRequest{
+				Email:            "notfound@example.com",
+				VerificationCode: 1234,
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{
+					IsVerified: true,
+				}, nil)
+			},
+			expectedError: true,
+			errorCode:     codes.AlreadyExists,
+			errorMsg:      "user is already verified",
+		},
+		{
+			name: "invalid verification code",
+			request: &pb.VerifyEmailRequest{
+				Email:            "test@example.com",
+				VerificationCode: 5678, // Different code than what's in the database
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{
+					VerificationCode:       1234, // Actual code in DB
+					IsVerified:             false,
+					VerificationExpireTime: time.Now().Add(-time.Hour), // Expired 1 hour ago
+				})
+			},
+			expectedError: true,
+			errorCode:     codes.Unauthenticated,
+			errorMsg:      "invalid verification code",
+		},
+		{
+			name: "verification code expired",
+			request: &pb.VerifyEmailRequest{
+				Email:            "test@example.com",
+				VerificationCode: 1234,
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{
+					VerificationCode:       1234,
+					IsVerified:             false,
+					VerificationExpireTime: time.Now().Add(-time.Hour), // Expired 1 hour ago
+				}, nil)
+			},
+			expectedError: true,
+			errorCode:     codes.DeadlineExceeded,
+			errorMsg:      "verification code expired",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockDB := new(mocks.MockQueries)
+			server := NewServer(mockDB, "test-secret", "test@example.com", "email-secret")
+			ctx := context.Background()
+
+			tc.mockSetup(mockDB)
+
+			response, err := server.VerifyEmail(ctx, tc.request)
+
+			if tc.expectedError {
+				assert.Error(t, err)
+				statusErr, ok := status.FromError(err)
+				assert.True(t, ok)
+				assert.Equal(t, tc.errorCode, statusErr.Code())
+				assert.Contains(t, statusErr.Message(), tc.errorMsg)
+				assert.Nil(t, response)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, response)
+				assert.True(t, response.Success)
+				assert.Equal(t, "Email verified successfully", response.Message)
 			}
 			mockDB.AssertExpectations(t)
 		})
