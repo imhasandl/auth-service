@@ -14,22 +14,21 @@ import (
 )
 
 type DBQuerier interface {
-	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
-	GetUserByIdentifier(ctx context.Context, arg GetUserByIdentifierParams) (User, error)
+	CreateUser(ctx context.Context, arg database.CreateUserParams) (database.User, error)
+	GetUserByIdentifier(ctx context.Context, arg database.GetUserByIdentifierParams) (database.User, error)
 	VerifyUser(ctx context.Context, email string) error
-	StoreVerificationCode(ctx context.Context, arg StoreVerificationCodeParams) error
-	SendVerifyCodeAgain(ctx context.Context, arg SendVerifyCodeAgainParams) error
-	RefreshToken(ctx context.Context, arg RefreshTokenParams) (RefreshToken, error)
-	GetRefreshToken(ctx context.Context, token string) (RefreshToken, error)
+	StoreVerificationCode(ctx context.Context, arg database.StoreVerificationCodeParams) error
+	SendVerifyCodeAgain(ctx context.Context, arg database.SendVerifyCodeAgainParams) error
+	RefreshToken(ctx context.Context, arg database.RefreshTokenParams) (database.RefreshToken, error)
+	GetRefreshToken(ctx context.Context, token string) (database.RefreshToken, error)
 	DeleteTokenByToken(ctx context.Context, token string) error
 	DeleteTokenByUserID(ctx context.Context, userID uuid.UUID) error
-	// Add other methods as needed
 }
 
 // Server implements the AuthService gRPC interface
 type Server struct {
 	pb.UnimplementedAuthServiceServer
-	db          *database.Queries
+	db          DBQuerier
 	tokenSecret string
 	email       string
 	emailSecret string
