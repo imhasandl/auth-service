@@ -49,6 +49,10 @@ func HashPassword(password string) (string, error) {
 	return string(hashedPassword), err
 }
 
+var MockCheckPassword = func(hashedPassword, password string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+}
+
 // CheckPassword checks if the provided password matches the hashed password
 func CheckPassword(hashedPassword, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
