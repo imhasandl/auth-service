@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/imhasandl/auth-service/cmd/auth"
 	"github.com/imhasandl/auth-service/internal/database"
 	"github.com/imhasandl/auth-service/internal/mocks"
 	pb "github.com/imhasandl/auth-service/protos"
@@ -224,6 +225,100 @@ func TestVerifyEmail(t *testing.T) {
 				assert.NotNil(t, response)
 				assert.True(t, response.Success)
 				assert.Equal(t, "Email verified successfully", response.Message)
+			}
+			mockDB.AssertExpectations(t)
+		})
+	}
+}
+
+func TestLogin(t *testing.T) {
+	testCases := []struct {
+		name string
+		request *pb.LoginRequest
+		mockSetup func(*mocks.MockQueries)
+		expectedError bool
+		errorCode codes.Code
+		errorMsg string
+	} {
+		{
+			name: "succssful login",
+			request: &pb.LoginRequest{
+				Identifier: "test@example.com",
+				Password:   "password123",
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{
+					ID:       uuid.New(),
+					Email:    "test@example.com",
+					Username: "testuser",
+					Password: "hashed_password", // In real test, use properly hashed password
+			  }, nil)
+			},
+			expectedError: false,
+		},
+		{
+			name:  "user not found",
+			request: &pb.LoginRequest{
+				Identifier: "test@example.com",
+				Password:   "password123",
+		  },
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{}, errors.New("User not found"))
+			},
+			expectedError: true,
+			errorCode: codes.Internal,
+			errorMsg: "can't get user with identifier",
+		},
+		{
+			name: "database error storing refresh token",
+			request: &pb.LoginRequest{
+				 Identifier: "test@example.com",
+				 Password:   "password123",
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				 mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{
+					  ID:       uuid.New(),
+					  Password: "hashed_password",
+				 }, nil)
+				 
+				 mockDB.On("RefreshToken", mock.Anything, mock.Anything).Return(database.RefreshToken{}, errors.New("database error"))
+			},
+			expectedError: true,
+			errorCode:     codes.Internal,
+			errorMsg:      "can't store refresh token",
+	  },
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockDB := new(mocks.MockQueries)
+			server := NewServer(mockDB, "test-secret", "test@example.com", "email-secret")
+			ctx := context.Background()
+
+			auth.MockCheckPassword = func(hashedPassword, password string) error {
+				if tc.name == "successful login" {
+					return nil
+				}
+				return errors.New("invalid password")
+			}
+
+			tc.mockSetup(mockDB)
+
+			response, err := server.Login(ctx, tc.request)
+
+			if tc.expectedError {
+				assert.Error(t, err)
+				statusErr, ok := status.FromError(err)
+				assert.True(t, ok)
+				assert.Equal(t, tc.errorCode, statusErr.Code())
+				assert.Contains(t, statusErr.Message(), tc.errorMsg)
+				assert.Nil(t, response)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, response)
+				assert.NotNil(t, response.User)
+				assert.NotEmpty(t, response.Token)
+				assert.NotEmpty(t, response.RefreshToken)
 			}
 			mockDB.AssertExpectations(t)
 		})
