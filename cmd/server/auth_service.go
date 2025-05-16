@@ -21,7 +21,7 @@ type DBQuerier interface {
 	SendVerifyCodeAgain(ctx context.Context, arg database.SendVerifyCodeAgainParams) error
 	RefreshToken(ctx context.Context, arg database.RefreshTokenParams) (database.RefreshToken, error)
 	GetRefreshToken(ctx context.Context, token string) (database.RefreshToken, error)
-	DeleteTokenByToken(ctx context.Context, token string) error
+	DeleteRefreshTokenByToken(ctx context.Context, token string) error
 	DeleteTokenByUserID(ctx context.Context, userID uuid.UUID) error
 }
 
@@ -46,8 +46,6 @@ func NewServer(db DBQuerier, tokenSecret, email, emailSecret string) *Server {
 }
 
 // Register handles user registration by validating input data, creating a new user record,
-// generating a verification code, and sending it to the user's email for account verification.
-// It returns the created user information on success or an appropriate error on failure.
 func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	if len(req.GetUsername()) < 5 {
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "username should be 5 characters long", nil)
@@ -108,8 +106,6 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 }
 
 // VerifyEmail validates the verification code provided by the user against the one stored in the database.
-// If the code is valid and not expired, it marks the user's email as verified.
-// It returns a success response or an appropriate error on failure.
 func (s *Server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*pb.VerifyEmailResponse, error) {
 	userParams := database.GetUserByIdentifierParams{
 		Email:    req.GetEmail(),
@@ -145,8 +141,6 @@ func (s *Server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*
 }
 
 // SendVerifyCodeAgain generates a new verification code for a user and sends it to their email.
-// This is used when the original verification code expired or was lost.
-// It returns a success response or an appropriate error on failure.
 func (s *Server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCodeAgainRequest) (*pb.SendVerifyCodeAgainResponse, error) {
 	userParams := database.GetUserByIdentifierParams{
 		Email:    req.GetEmail(),
@@ -185,8 +179,6 @@ func (s *Server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCode
 }
 
 // Login authenticates a user using their email/username and password.
-// On successful authentication, it generates JWT access and refresh tokens.
-// It returns the user information along with the tokens or an appropriate error on failure.
 func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
 	userParams := database.GetUserByIdentifierParams{
 		Email:    req.GetIdentifier(),
@@ -239,8 +231,6 @@ func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 }
 
 // RefreshToken validates a refresh token and issues a new access token and refresh token pair.
-// It invalidates the old refresh token to implement token rotation security.
-// It returns the new tokens or an appropriate error if the token is invalid or expired.
 func (s *Server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
 	refreshToken := req.GetRefreshToken()
 	if refreshToken == "" {
@@ -299,7 +289,7 @@ func (s *Server) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.LogoutR
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.InvalidArgument, "refresh token is required - Logout", nil)
 	}
 
-	err := s.db.DeleteTokenByToken(ctx, refreshToken)
+	err := s.db.DeleteRefreshTokenByToken(ctx, refreshToken)
 	if err != nil {
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't delete token - Logout", err)
 	}
