@@ -233,13 +233,13 @@ func TestVerifyEmail(t *testing.T) {
 
 func TestLogin(t *testing.T) {
 	testCases := []struct {
-		name string
-		request *pb.LoginRequest
-		mockSetup func(*mocks.MockQueries)
+		name          string
+		request       *pb.LoginRequest
+		mockSetup     func(*mocks.MockQueries)
 		expectedError bool
-		errorCode codes.Code
-		errorMsg string
-	} {
+		errorCode     codes.Code
+		errorMsg      string
+	}{
 		{
 			name: "succssful login",
 			request: &pb.LoginRequest{
@@ -252,41 +252,41 @@ func TestLogin(t *testing.T) {
 					Email:    "test@example.com",
 					Username: "testuser",
 					Password: "hashed_password", // In real test, use properly hashed password
-			  }, nil)
+				}, nil)
 			},
 			expectedError: false,
 		},
 		{
-			name:  "user not found",
+			name: "user not found",
 			request: &pb.LoginRequest{
 				Identifier: "test@example.com",
 				Password:   "password123",
-		  },
+			},
 			mockSetup: func(mockDB *mocks.MockQueries) {
 				mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{}, errors.New("User not found"))
 			},
 			expectedError: true,
-			errorCode: codes.Internal,
-			errorMsg: "can't get user with identifier",
+			errorCode:     codes.Internal,
+			errorMsg:      "can't get user with identifier",
 		},
 		{
 			name: "database error storing refresh token",
 			request: &pb.LoginRequest{
-				 Identifier: "test@example.com",
-				 Password:   "password123",
+				Identifier: "test@example.com",
+				Password:   "password123",
 			},
 			mockSetup: func(mockDB *mocks.MockQueries) {
-				 mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{
-					  ID:       uuid.New(),
-					  Password: "hashed_password",
-				 }, nil)
-				 
-				 mockDB.On("RefreshToken", mock.Anything, mock.Anything).Return(database.RefreshToken{}, errors.New("database error"))
+				mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{
+					ID:       uuid.New(),
+					Password: "hashed_password",
+				}, nil)
+
+				mockDB.On("RefreshToken", mock.Anything, mock.Anything).Return(database.RefreshToken{}, errors.New("database error"))
 			},
 			expectedError: true,
 			errorCode:     codes.Internal,
 			errorMsg:      "can't store refresh token",
-	  },
+		},
 	}
 
 	for _, tc := range testCases {
@@ -323,4 +323,79 @@ func TestLogin(t *testing.T) {
 			mockDB.AssertExpectations(t)
 		})
 	}
+}
+
+func TestLogout(t *testing.T) {
+    testCases := []struct {
+        name           string
+        request        *pb.LogoutRequest
+        mockSetup      func(*mocks.MockQueries)
+        expectedErrorr bool
+        errorCode      codes.Code
+        errorMsg       string
+    }{
+        {
+            name: "successful logout",
+            request: &pb.LogoutRequest{
+                RefreshToken: "test-refresh-token",
+            },
+            mockSetup: func(mockDB *mocks.MockQueries) {
+                mockDB.On("DeleteRefreshTokenByToken", mock.Anything, "test-refresh-token").Return(nil)
+            },
+            expectedErrorr: false,
+            errorCode:      codes.OK,
+            errorMsg:       "successfully log out",
+        },
+        {
+            name: "database error during logout",
+            request: &pb.LogoutRequest{
+                RefreshToken: "test-refresh-token",
+            },
+            mockSetup: func(mockDB *mocks.MockQueries) {
+                mockDB.On("DeleteRefreshTokenByToken", mock.Anything, "test-refresh-token").Return(errors.New("database error"))
+            },
+            expectedErrorr: true,
+            errorCode:      codes.Internal,
+            errorMsg:       "can't delete refresh token",
+        },
+        {
+            name: "empty refresh token",
+            request: &pb.LogoutRequest{
+                RefreshToken: "",
+            },
+            mockSetup: func(mockDB *mocks.MockQueries) {
+                // No DB call expected with empty token
+            },
+            expectedErrorr: true,
+            errorCode:      codes.InvalidArgument,
+            errorMsg:       "refresh token is required",
+        },
+    }
+
+    for _, tc := range testCases {
+        t.Run(tc.name, func(t *testing.T) {
+            mockDB := new(mocks.MockQueries)
+            server := NewServer(mockDB, "test-secret", "test@example.com", "email-secret")
+            ctx := context.Background()
+
+            tc.mockSetup(mockDB)
+
+            response, err := server.Logout(ctx, tc.request)
+
+            if tc.expectedErrorr {
+                assert.Error(t, err)
+                statusErr, ok := status.FromError(err)
+                assert.True(t, ok)
+                assert.Equal(t, tc.errorCode, statusErr.Code())
+                assert.Contains(t, statusErr.Message(), tc.errorMsg)
+                assert.Nil(t, response)
+            } else {
+                assert.NoError(t, err)
+                assert.NotNil(t, response)
+                assert.True(t, response.Success)
+                assert.Equal(t, "successfully logged out", response.Message)
+            }
+            mockDB.AssertExpectations(t)
+        })
+    }
 }
