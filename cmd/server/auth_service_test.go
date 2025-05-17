@@ -251,7 +251,7 @@ func TestLogin(t *testing.T) {
 					ID:       uuid.New(),
 					Email:    "test@example.com",
 					Username: "testuser",
-					Password: "hashed_password", // In real test, use properly hashed password
+					Password: "hashed_password",
 				}, nil)
 			},
 			expectedError: false,
@@ -326,76 +326,223 @@ func TestLogin(t *testing.T) {
 }
 
 func TestLogout(t *testing.T) {
-    testCases := []struct {
-        name           string
-        request        *pb.LogoutRequest
-        mockSetup      func(*mocks.MockQueries)
-        expectedErrorr bool
-        errorCode      codes.Code
-        errorMsg       string
-    }{
-        {
-            name: "successful logout",
-            request: &pb.LogoutRequest{
-                RefreshToken: "test-refresh-token",
-            },
-            mockSetup: func(mockDB *mocks.MockQueries) {
-                mockDB.On("DeleteRefreshTokenByToken", mock.Anything, "test-refresh-token").Return(nil)
-            },
-            expectedErrorr: false,
-            errorCode:      codes.OK,
-            errorMsg:       "successfully log out",
-        },
-        {
-            name: "database error during logout",
-            request: &pb.LogoutRequest{
-                RefreshToken: "test-refresh-token",
-            },
-            mockSetup: func(mockDB *mocks.MockQueries) {
-                mockDB.On("DeleteRefreshTokenByToken", mock.Anything, "test-refresh-token").Return(errors.New("database error"))
-            },
-            expectedErrorr: true,
-            errorCode:      codes.Internal,
-            errorMsg:       "can't delete refresh token",
-        },
-        {
-            name: "empty refresh token",
-            request: &pb.LogoutRequest{
-                RefreshToken: "",
-            },
-            mockSetup: func(mockDB *mocks.MockQueries) {
-                // No DB call expected with empty token
-            },
-            expectedErrorr: true,
-            errorCode:      codes.InvalidArgument,
-            errorMsg:       "refresh token is required",
-        },
-    }
+	testCases := []struct {
+		name          string
+		request       *pb.LogoutRequest
+		mockSetup     func(*mocks.MockQueries)
+		expectedError bool
+		errorCode     codes.Code
+		errorMsg      string
+	}{
+		{
+			name: "successful logout",
+			request: &pb.LogoutRequest{
+				RefreshToken: "test-refresh-token",
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				mockDB.On("DeleteRefreshTokenByToken", mock.Anything, "test-logout").Return(nil)
+			},
+			expectedError: false,
+			errorCode:     codes.OK,
+			errorMsg:      "successfully logged out",
+		},
+		{
+			name: "database error during logout",
+			request: &pb.LogoutRequest{
+				RefreshToken: "test-refresh-token",
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				mockDB.On("DeleteRefreshTokenByToken", mock.Anything, "test-logout").Return(errors.New("database error"))
+			},
+			expectedError: true,
+			errorCode:     codes.Internal,
+			errorMsg:      "can't delete token - Logout",
+		},
+		{
+			name: "empty refresh token",
+			request: &pb.LogoutRequest{
+				RefreshToken: "",
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				// No DB call expected with empty token
+			},
+			expectedError: true,
+			errorCode:     codes.InvalidArgument,
+			errorMsg:      "refresh token is required",
+		},
+	}
 
-    for _, tc := range testCases {
-        t.Run(tc.name, func(t *testing.T) {
-            mockDB := new(mocks.MockQueries)
-            server := NewServer(mockDB, "test-secret", "test@example.com", "email-secret")
-            ctx := context.Background()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockDB := new(mocks.MockQueries)
+			server := NewServer(mockDB, "test-secret", "test@example.com", "email-secret")
+			ctx := context.Background()
 
-            tc.mockSetup(mockDB)
+			tc.mockSetup(mockDB)
 
-            response, err := server.Logout(ctx, tc.request)
+			response, err := server.Logout(ctx, tc.request)
 
-            if tc.expectedErrorr {
-                assert.Error(t, err)
-                statusErr, ok := status.FromError(err)
-                assert.True(t, ok)
-                assert.Equal(t, tc.errorCode, statusErr.Code())
-                assert.Contains(t, statusErr.Message(), tc.errorMsg)
-                assert.Nil(t, response)
-            } else {
-                assert.NoError(t, err)
-                assert.NotNil(t, response)
-                assert.True(t, response.Success)
-                assert.Equal(t, "successfully logged out", response.Message)
-            }
-            mockDB.AssertExpectations(t)
-        })
-    }
+			if tc.expectedError {
+				assert.Error(t, err)
+				statusErr, ok := status.FromError(err)
+				assert.True(t, ok)
+				assert.Equal(t, tc.errorCode, statusErr.Code())
+				assert.Contains(t, statusErr.Message(), tc.errorMsg)
+				assert.Nil(t, response)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, response)
+				assert.True(t, response.Success)
+				assert.Equal(t, "successfully logged out", tc.errorMsg)
+			}
+			mockDB.AssertExpectations(t)
+		})
+	}
+}
+
+func TestRefreshToken(t *testing.T) {
+	testCases := []struct {
+		name          string
+		request       *pb.RefreshTokenRequest
+		mockSetup     func(*mocks.MockQueries)
+		expectedError bool
+		errorCode     codes.Code
+		errorMsg      string
+	}{
+		{
+			name: "successfuly refreshed token",
+			request: &pb.RefreshTokenRequest{
+				RefreshToken: "test-refresh-token",
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				userID := uuid.New()
+				mockDB.On("GetRefreshToken", mock.Anything, "test-refresh-token").Return(database.RefreshToken{
+					Token:      "test-refresh-token",
+					UserID:     userID,
+					ExpiryTime: time.Now().Add(time.Hour * 7 * 24),
+					CreatedAt:  time.Now(),
+				}, nil)
+
+				mockDB.On("DeleteTokenByUserID", mock.Anything, userID).Return(nil)
+				mockDB.On("RefreshToken", mock.Anything, mock.Anything).Return(database.RefreshToken{
+					Token:      "new-refresh-token",
+					UserID:     userID,
+					ExpiryTime: time.Now().Add(time.Hour * 7 * 24),
+					CreatedAt:  time.Now(),
+				}, nil)
+			},
+			expectedError: false,
+			errorCode:     codes.OK,
+			errorMsg:      "",
+		},
+		{
+			name: "can't get token from database",
+			request: &pb.RefreshTokenRequest{
+				RefreshToken: "wrong-token",
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				mockDB.On("GetRefreshToken", mock.Anything, "wrong-token").Return(database.RefreshToken{}, errors.New("token not found"))
+			},
+			expectedError: true,
+			errorCode:     codes.InvalidArgument,
+			errorMsg:      "can't get refresh token - RefreshToken",
+		},
+		{
+			name: "empty refresh token",
+			request: &pb.RefreshTokenRequest{
+				RefreshToken: "",
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				// No DB call with empty body request
+			},
+			expectedError: true,
+			errorCode:     codes.InvalidArgument,
+			errorMsg:      "refresh token is required",
+		},
+		{
+			name: "expired refresh token",
+			request: &pb.RefreshTokenRequest{
+				RefreshToken: "expired-token",
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				userID := uuid.New()
+				mockDB.On("GetRefreshToken", mock.Anything, "expired-token").Return(database.RefreshToken{
+					Token:      "expired-token",
+					UserID:     userID,
+					ExpiryTime: time.Now().Add(-time.Hour),
+					CreatedAt:  time.Now().Add(-time.Hour * 7 * 24),
+				}, nil)
+			},
+			expectedError: true,
+			errorCode:     codes.DeadlineExceeded,
+			errorMsg:      "refresh token expired - RefreshToken",
+		},
+		{
+			name: "error deleting old token",
+			request: &pb.RefreshTokenRequest{
+				RefreshToken: "valid-token",
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				userID := uuid.New()
+				mockDB.On("GetRefreshToken", mock.Anything, userID).Return(database.RefreshToken{
+					Token:      "valid-token",
+					UserID:     userID,
+					ExpiryTime: time.Now().Add(time.Hour * 7 * 24),
+				}, nil)
+
+				mockDB.On("DeleteTokenByUserID", mock.Anything, userID).Return(errors.New("database error"))
+			},
+			expectedError: true,
+			errorCode:     codes.Internal,
+			errorMsg:      "can't delete previous refresh tokens",
+		},
+		{
+			name: "error storing new refresh token",
+			request: &pb.RefreshTokenRequest{
+				RefreshToken: "valid-token",
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				userID := uuid.New()
+				mockDB.On("GetRefreshToken", mock.Anything, userID).Return(database.RefreshToken{
+					Token:      "valid-token",
+					UserID:     userID,
+					ExpiryTime: time.Now().Add(time.Hour * 7 * 24),
+					CreatedAt:  time.Now(),
+				}, nil)
+
+				mockDB.On("DeleteTokenByUserID", mock.Anything, userID).Return(nil)
+				mockDB.On("RefreshToken", mock.Anything, userID).Return(database.RefreshToken{}, errors.New("database error"))
+			},
+			expectedError: true,
+			errorCode:     codes.Internal,
+			errorMsg:      "can't store new refresh token",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockDB := new(mocks.MockQueries)
+			server := NewServer(mockDB, "test-secret", "test@example.com", "email-secret")
+			ctx := context.Background()
+
+			tc.mockSetup(mockDB)
+
+			response, err := server.RefreshToken(ctx, tc.request)
+			
+			if tc.expectedError {
+				assert.Error(t, err)
+				statusErr, ok := status.FromError(err)
+				assert.True(t, ok)
+				assert.Equal(t, tc.errorCode, statusErr.Code())
+				assert.Contains(t, statusErr.Message(), tc.errorMsg)
+				assert.Nil(t, response)
+			} else {
+				assert.NotNil(t, response)
+				assert.NoError(t, err)
+				assert.NotEmpty(t, response.AccessToken)
+				assert.NotEmpty(t, response.RefreshToken)
+			}
+			mockDB.AssertExpectations(t)
+		})
+	}
 }
