@@ -239,7 +239,7 @@ func (s *Server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) 
 
 	storedToken, err := s.db.GetRefreshToken(ctx, refreshToken)
 	if err != nil {
-		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't get refresh token - RefreshToken", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.InvalidArgument, "can't get refresh token - RefreshToken", err)
 	}
 
 	// Verify token is not expired
