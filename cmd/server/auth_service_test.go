@@ -484,17 +484,18 @@ func TestRefreshToken(t *testing.T) {
 			},
 			mockSetup: func(mockDB *mocks.MockQueries) {
 				userID := uuid.New()
-				mockDB.On("GetRefreshToken", mock.Anything, userID).Return(database.RefreshToken{
+				mockDB.On("GetRefreshToken", mock.Anything, "valid-token").Return(database.RefreshToken{
 					Token:      "valid-token",
 					UserID:     userID,
 					ExpiryTime: time.Now().Add(time.Hour * 7 * 24),
+					CreatedAt:  time.Now(),
 				}, nil)
 
 				mockDB.On("DeleteTokenByUserID", mock.Anything, userID).Return(errors.New("database error"))
 			},
 			expectedError: true,
 			errorCode:     codes.Internal,
-			errorMsg:      "can't delete previous refresh tokens",
+			errorMsg:      "can't delete old token - RefreshToken",
 		},
 		{
 			name: "error storing new refresh token",
@@ -503,7 +504,7 @@ func TestRefreshToken(t *testing.T) {
 			},
 			mockSetup: func(mockDB *mocks.MockQueries) {
 				userID := uuid.New()
-				mockDB.On("GetRefreshToken", mock.Anything, userID).Return(database.RefreshToken{
+				mockDB.On("GetRefreshToken", mock.Anything, "valid-token").Return(database.RefreshToken{
 					Token:      "valid-token",
 					UserID:     userID,
 					ExpiryTime: time.Now().Add(time.Hour * 7 * 24),
@@ -511,11 +512,11 @@ func TestRefreshToken(t *testing.T) {
 				}, nil)
 
 				mockDB.On("DeleteTokenByUserID", mock.Anything, userID).Return(nil)
-				mockDB.On("RefreshToken", mock.Anything, userID).Return(database.RefreshToken{}, errors.New("database error"))
+				mockDB.On("RefreshToken", mock.Anything, mock.Anything).Return(database.RefreshToken{}, errors.New("database error"))
 			},
 			expectedError: true,
 			errorCode:     codes.Internal,
-			errorMsg:      "can't store new refresh token",
+			errorMsg:      "can't store refresh token - RefreshToken",
 		},
 	}
 
@@ -528,7 +529,7 @@ func TestRefreshToken(t *testing.T) {
 			tc.mockSetup(mockDB)
 
 			response, err := server.RefreshToken(ctx, tc.request)
-			
+
 			if tc.expectedError {
 				assert.Error(t, err)
 				statusErr, ok := status.FromError(err)
@@ -543,6 +544,27 @@ func TestRefreshToken(t *testing.T) {
 				assert.NotEmpty(t, response.RefreshToken)
 			}
 			mockDB.AssertExpectations(t)
+		})
+	}
+}
+
+func TestSendVerificationCode(t *testing.T) {
+	testCases := []struct {
+		name          string
+		request       *pb.SendVerifyCodeRequest
+		mockSetup     func(*mocks.MockQueries)
+		expectedError bool
+		errorCode     codes.Code
+		errorMsg      string
+	}{
+		{
+			name: "successfully send verification code",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+
 		})
 	}
 }
