@@ -141,7 +141,7 @@ func (s *Server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*
 }
 
 // SendVerifyCodeAgain generates a new verification code for a user and sends it to their email.
-func (s *Server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCodeAgainRequest) (*pb.SendVerifyCodeAgainResponse, error) {
+func (s *Server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCodeRequest) (*pb.SendVerifyCodeResponse, error) {
 	userParams := database.GetUserByIdentifierParams{
 		Email:    req.GetEmail(),
 		Username: req.GetEmail(),
@@ -172,7 +172,7 @@ func (s *Server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCode
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to send verification email - SendVerifyCodeAgain", err)
 	}
 
-	return &pb.SendVerifyCodeAgainResponse{
+	return &pb.SendVerifyCodeResponse{
 		Success: true,
 		Message: "new verification code sent",
 	}, nil
@@ -244,7 +244,7 @@ func (s *Server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) 
 
 	// Verify token is not expired
 	if time.Now().After(storedToken.ExpiryTime) {
-		return nil, helper.RespondWithErrorGRPC(ctx, codes.Unauthenticated, "refresh token expired - RefreshToken", nil)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.DeadlineExceeded, "refresh token expired - RefreshToken", nil)
 	}
 
 	newAccessToken, err := auth.MakeJWT(storedToken.UserID, s.tokenSecret, time.Hour)

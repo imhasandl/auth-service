@@ -13,7 +13,7 @@ service AuthService {
   rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse) {}
 
   rpc VerifyEmail (VerifyEmailRequest) returns (VerifyEmailResponse) {}
-  rpc SendVerifyCodeAgain (SendVerifyCodeAgainRequest) returns (SendVerifyCodeAgainResponse) {}
+  rpc SendVerifyCode (SendVerifyCodeRequest) returns (SendVerifyCodeResponse) {}
 
   rpc Logout (LogoutRequest) returns (LogoutResponse) {}
 }
@@ -53,11 +53,11 @@ message VerifyEmailResponse {
   string message = 2;
 }
 
-message SendVerifyCodeAgainRequest {
+message SendVerifyCodeRequest {
   string email = 1;
 }
 
-message SendVerifyCodeAgainResponse {
+message SendVerifyCodeResponse {
   bool success = 1;
   string message = 2;
 }
