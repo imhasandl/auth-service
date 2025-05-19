@@ -241,20 +241,41 @@ func TestLogin(t *testing.T) {
 		errorMsg      string
 	}{
 		{
-			name: "succssful login",
+			name: "successfully logged in",
 			request: &pb.LoginRequest{
 				Identifier: "test@example.com",
 				Password:   "password123",
 			},
 			mockSetup: func(mockDB *mocks.MockQueries) {
-				mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{
-					ID:       uuid.New(),
+				userID := uuid.New()
+
+				// Hash the password for the mock user
+				hashedPassword, err := auth.HashPassword("password123")
+				assert.NoError(t, err)
+
+				expectedParams := database.GetUserByIdentifierParams{
+					Email:    "test@example.com",
+					Username: "test@example.com",
+				}
+				mockDB.On("GetUserByIdentifier", mock.Anything, expectedParams).Return(database.User{
+					ID:       userID,
 					Email:    "test@example.com",
 					Username: "testuser",
-					Password: "hashed_password",
+					Password: hashedPassword, // Use hashed password
+				}, nil)
+
+				mockDB.On("RefreshToken", mock.Anything, mock.MatchedBy(func(arg database.RefreshTokenParams) bool {
+					return arg.UserID == userID
+				})).Return(database.RefreshToken{
+					Token:      "test-refresh-token",
+					UserID:     userID,
+					ExpiryTime: time.Now().Add(time.Hour * 7 * 24),
+					CreatedAt:  time.Now(),
 				}, nil)
 			},
 			expectedError: false,
+			errorCode:     codes.OK,
+			errorMsg:      "",
 		},
 		{
 			name: "user not found",
@@ -267,7 +288,7 @@ func TestLogin(t *testing.T) {
 			},
 			expectedError: true,
 			errorCode:     codes.Internal,
-			errorMsg:      "can't get user with identifier",
+			errorMsg:      "can't get user with identifier - Login",
 		},
 		{
 			name: "database error storing refresh token",
@@ -276,16 +297,24 @@ func TestLogin(t *testing.T) {
 				Password:   "password123",
 			},
 			mockSetup: func(mockDB *mocks.MockQueries) {
-				mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{
-					ID:       uuid.New(),
-					Password: "hashed_password",
+				userID := uuid.New()
+				hashedPassword, err := auth.HashPassword("password123")
+				assert.NoError(t, err)
+
+				expectedUserParams := database.GetUserByIdentifierParams{
+					Email:    "test@example.com",
+					Username: "test@example.com",
+				}
+				mockDB.On("GetUserByIdentifier", mock.Anything, expectedUserParams).Return(database.User{
+					ID:       userID,
+					Password: hashedPassword,
 				}, nil)
 
 				mockDB.On("RefreshToken", mock.Anything, mock.Anything).Return(database.RefreshToken{}, errors.New("database error"))
 			},
 			expectedError: true,
 			errorCode:     codes.Internal,
-			errorMsg:      "can't store refresh token",
+			errorMsg:      "can't store refresh token - Login",
 		},
 	}
 
@@ -294,13 +323,6 @@ func TestLogin(t *testing.T) {
 			mockDB := new(mocks.MockQueries)
 			server := NewServer(mockDB, "test-secret", "test@example.com", "email-secret")
 			ctx := context.Background()
-
-			auth.MockCheckPassword = func(hashedPassword, password string) error {
-				if tc.name == "successful login" {
-					return nil
-				}
-				return errors.New("invalid password")
-			}
 
 			tc.mockSetup(mockDB)
 
@@ -337,7 +359,7 @@ func TestLogout(t *testing.T) {
 		{
 			name: "successful logout",
 			request: &pb.LogoutRequest{
-				RefreshToken: "test-refresh-token",
+				RefreshToken: "test-logout",
 			},
 			mockSetup: func(mockDB *mocks.MockQueries) {
 				mockDB.On("DeleteRefreshTokenByToken", mock.Anything, "test-logout").Return(nil)
@@ -349,7 +371,7 @@ func TestLogout(t *testing.T) {
 		{
 			name: "database error during logout",
 			request: &pb.LogoutRequest{
-				RefreshToken: "test-refresh-token",
+				RefreshToken: "test-logout",
 			},
 			mockSetup: func(mockDB *mocks.MockQueries) {
 				mockDB.On("DeleteRefreshTokenByToken", mock.Anything, "test-logout").Return(errors.New("database error"))
