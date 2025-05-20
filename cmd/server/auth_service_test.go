@@ -34,22 +34,28 @@ func TestRegister(t *testing.T) {
 				Username: "testusername",
 			},
 			mockSetup: func(mockDB *mocks.MockQueries) {
+				userID := uuid.New()
+
 				mockDB.On("CreateUser", mock.Anything, mock.MatchedBy(func(arg database.CreateUserParams) bool {
-					return arg.Email == "test@example.com" && arg.Username == "testuser"
+					return arg.Email == "test@example.com" && arg.Username == "testusername"
 				})).Return(database.User{
-					ID:               uuid.New(),
+					ID:               userID,
 					Email:            "test@example.com",
-					Username:         "testuser",
+					Username:         "testusername",
 					CreatedAt:        time.Now(),
 					UpdatedAt:        time.Now(),
 					IsPremium:        false,
 					VerificationCode: 1234,
 					IsVerified:       false,
-				})
+				}, nil)
 
-				mockDB.On("StoreVerificationCode", mock.Anything, mock.Anything).Return(nil)
+				mockDB.On("StoreVerificationCode", mock.Anything, mock.MatchedBy(func(arg database.StoreVerificationCodeParams) bool {
+					return arg.ID == userID
+				})).Return(nil)
 			},
 			expectedError: false,
+			errorCode:     codes.OK,
+			errorMsg:      "",
 		},
 		{
 			name: "username too short",
@@ -61,7 +67,7 @@ func TestRegister(t *testing.T) {
 			mockSetup:     func(mockDB *mocks.MockQueries) {},
 			expectedError: true,
 			errorCode:     codes.Internal,
-			errorMsg:      "username should be at 5 characters or above",
+			errorMsg:      "username should be 5 characters long",
 		},
 		{
 			name: "database error during user creation",
@@ -165,7 +171,7 @@ func TestVerifyEmail(t *testing.T) {
 			},
 			expectedError: true,
 			errorCode:     codes.AlreadyExists,
-			errorMsg:      "user is already verified",
+			errorMsg:      "email already verified - VerifyEmail",
 		},
 		{
 			name: "invalid verification code",
@@ -175,14 +181,14 @@ func TestVerifyEmail(t *testing.T) {
 			},
 			mockSetup: func(mockDB *mocks.MockQueries) {
 				mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{
-					VerificationCode:       1234, // Actual code in DB
+					VerificationCode:       1234,
 					IsVerified:             false,
-					VerificationExpireTime: time.Now().Add(-time.Hour), // Expired 1 hour ago
-				})
+					VerificationExpireTime: time.Now().Add(time.Hour),
+				}, nil)
 			},
 			expectedError: true,
 			errorCode:     codes.Unauthenticated,
-			errorMsg:      "invalid verification code",
+			errorMsg:      "invalid verification code - VerifyEmail",
 		},
 		{
 			name: "verification code expired",
@@ -191,11 +197,21 @@ func TestVerifyEmail(t *testing.T) {
 				VerificationCode: 1234,
 			},
 			mockSetup: func(mockDB *mocks.MockQueries) {
-				mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{
+				expectedParams := database.GetUserByIdentifierParams{
+					Email:    "test@example.com",
+					Username: "",
+				}
+				returnedUser := database.User{
+					ID:                     uuid.New(),
+					Email:                  "test@example.com",
+					Username:               "testuser",
 					VerificationCode:       1234,
 					IsVerified:             false,
-					VerificationExpireTime: time.Now().Add(-time.Hour), // Expired 1 hour ago
-				}, nil)
+					VerificationExpireTime: time.Now().Add(-2 * time.Hour),
+				}
+				mockDB.On("GetUserByIdentifier", mock.Anything, expectedParams).Return(returnedUser, nil)
+
+				mockDB.On("GetUserByIdentifier", mock.Anything, expectedParams).Return(returnedUser, nil)
 			},
 			expectedError: true,
 			errorCode:     codes.DeadlineExceeded,

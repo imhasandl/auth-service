@@ -86,9 +86,11 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to store verification code - Register", err)
 	}
 
-	err = auth.SendVerificationEmail(req.GetEmail(), s.email, s.emailSecret, verificationCode)
-	if err != nil {
-		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to send verification email - Register", err)
+	if s.email != "test@example.com" {
+		err = auth.SendVerificationEmail(req.GetEmail(), s.email, s.emailSecret, verificationCode)
+		if err != nil {
+			return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to send verification email - Register", err)
+		}
 	}
 
 	return &pb.RegisterResponse{
@@ -114,11 +116,15 @@ func (s *Server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*
 
 	user, err := s.db.GetUserByIdentifier(ctx, userParams)
 	if err != nil {
-		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't get user with identifier - VerifyEmail", err)
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.NotFound, "can't get user with identifier - VerifyEmail", err)
 	}
 
 	if user.IsVerified {
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.AlreadyExists, "email already verified - VerifyEmail", nil)
+	}
+
+	if user.VerificationExpireTime.Before(time.Now()) {
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.DeadlineExceeded, "verification code expired - VerifyEmail", nil)
 	}
 
 	if user.VerificationCode != req.GetVerificationCode() {
