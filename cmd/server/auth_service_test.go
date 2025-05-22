@@ -27,7 +27,7 @@ func TestRegister(t *testing.T) {
 		errorMsg      string
 	}{
 		{
-			name: "succesful registration",
+			name: "successful registration",
 			request: &pb.RegisterRequest{
 				Email:    "test@example.com",
 				Password: "password123",
@@ -123,7 +123,7 @@ func TestVerifyEmail(t *testing.T) {
 		errorMsg      string
 	}{
 		{
-			name: "successfull verification",
+			name: "successful verification",
 			request: &pb.VerifyEmailRequest{
 				Email:            "test@example.com",
 				VerificationCode: 1234,
@@ -448,7 +448,7 @@ func TestRefreshToken(t *testing.T) {
 		errorMsg      string
 	}{
 		{
-			name: "successfuly refreshed token",
+			name: "successfully refreshed token",
 			request: &pb.RefreshTokenRequest{
 				RefreshToken: "test-refresh-token",
 			},
