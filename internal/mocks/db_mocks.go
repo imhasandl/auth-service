@@ -61,7 +61,7 @@ func (m *MockQueries) DeleteTokenByUserID(ctx context.Context, userID uuid.UUID)
 	return args.Error(0)
 }
 
-// DeleteTokenByToken mocks the DeleteTokenByToken method
+// DeleteRefreshTokenByToken mocks the DeleteRefreshTokenByToken method
 func (m *MockQueries) DeleteRefreshTokenByToken(ctx context.Context, token string) error {
 	args := m.Called(ctx, token)
 	return args.Error(0)

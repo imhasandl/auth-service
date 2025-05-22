@@ -27,7 +27,7 @@ func TestRegister(t *testing.T) {
 		errorMsg      string
 	}{
 		{
-			name: "succesful registration",
+			name: "successful registration",
 			request: &pb.RegisterRequest{
 				Email:    "test@example.com",
 				Password: "password123",
@@ -123,7 +123,7 @@ func TestVerifyEmail(t *testing.T) {
 		errorMsg      string
 	}{
 		{
-			name: "successfull verification",
+			name: "successful verification",
 			request: &pb.VerifyEmailRequest{
 				Email:            "test@example.com",
 				VerificationCode: 1234,
@@ -448,7 +448,7 @@ func TestRefreshToken(t *testing.T) {
 		errorMsg      string
 	}{
 		{
-			name: "successfuly refreshed token",
+			name: "successfully refreshed token",
 			request: &pb.RefreshTokenRequest{
 				RefreshToken: "test-refresh-token",
 			},
@@ -597,12 +597,77 @@ func TestSendVerificationCode(t *testing.T) {
 	}{
 		{
 			name: "successfully send verification code",
+			request: &pb.SendVerifyCodeRequest{
+				Email: "test@example.com",
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				userID := uuid.New()
+				mockDB.On("GetUserByIdentifier", mock.Anything, mock.MatchedBy(func(arg database.GetUserByIdentifierParams) bool {
+					return arg.Email == "test@example.com"
+				})).Return(database.User{
+					ID:    userID,
+					Email: "test@example.com",
+				}, nil)
+				mockDB.On("SendVerifyCodeAgain", mock.Anything, mock.Anything).Return(nil)
+			},
+			expectedError: false,
+		},
+		{
+			name: "user not found",
+			request: &pb.SendVerifyCodeRequest{
+				Email: "notfound@example.com",
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{}, errors.New("user not found"))
+			},
+			expectedError: true,
+			errorCode:     codes.Internal,
+			errorMsg:      "can't get user with identifier - SendVerifyCodeAgain",
+		},
+		{
+			name: "db error on SendVerifyCodeAgain",
+			request: &pb.SendVerifyCodeRequest{
+				Email: "test@example.com",
+			},
+			mockSetup: func(mockDB *mocks.MockQueries) {
+				userID := uuid.New()
+				mockDB.On("GetUserByIdentifier", mock.Anything, mock.Anything).Return(database.User{
+					ID:    userID,
+					Email: "test@example.com",
+				}, nil)
+				mockDB.On("SendVerifyCodeAgain", mock.Anything, mock.Anything).Return(errors.New("db error"))
+			},
+			expectedError: true,
+			errorCode:     codes.Internal,
+			errorMsg:      "failed to send verification code again - SendVerifyCodeAgain",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			mockDB := new(mocks.MockQueries)
 
+			server := NewServer(mockDB, "test-secret", "test@example.com", "email-secret")
+			ctx := context.Background()
+
+			tc.mockSetup(mockDB)
+
+			response, err := server.SendVerifyCode(ctx, tc.request)
+
+			if tc.expectedError {
+				assert.Error(t, err)
+				statusErr, ok := status.FromError(err)
+				assert.True(t, ok)
+				assert.Equal(t, tc.errorCode, statusErr.Code())
+				assert.Contains(t, statusErr.Message(), tc.errorMsg)
+				assert.Nil(t, response)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, response)
+				assert.True(t, response.Success)
+				assert.Equal(t, "new verification code sent", response.Message)
+			}
+			mockDB.AssertExpectations(t)
 		})
 	}
-}
+} 
