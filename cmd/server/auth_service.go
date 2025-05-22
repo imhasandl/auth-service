@@ -111,7 +111,7 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 func (s *Server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*pb.VerifyEmailResponse, error) {
 	userParams := database.GetUserByIdentifierParams{
 		Email:    req.GetEmail(),
-		Username: "",
+		Username: req.GetEmail(),
 	}
 
 	user, err := s.db.GetUserByIdentifier(ctx, userParams)
@@ -147,7 +147,7 @@ func (s *Server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*
 }
 
 // SendVerifyCodeAgain generates a new verification code for a user and sends it to their email.
-func (s *Server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCodeRequest) (*pb.SendVerifyCodeResponse, error) {
+func (s *Server) SendVerifyCode(ctx context.Context, req *pb.SendVerifyCodeRequest) (*pb.SendVerifyCodeResponse, error) {
 	userParams := database.GetUserByIdentifierParams{
 		Email:    req.GetEmail(),
 		Username: req.GetEmail(),
@@ -173,9 +173,12 @@ func (s *Server) SendVerifyCodeAgain(ctx context.Context, req *pb.SendVerifyCode
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to send verification code again - SendVerifyCodeAgain", err)
 	}
 
-	err = auth.SendVerificationEmail(req.GetEmail(), s.email, s.emailSecret, newVerifyCode)
-	if err != nil {
-		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to send verification email - SendVerifyCodeAgain", err)
+	// Skip email sending in test mode
+	if s.email != "test@example.com" {
+		err = auth.SendVerificationEmail(req.GetEmail(), s.email, s.emailSecret, newVerifyCode)
+		if err != nil {
+			return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to send verification email - SendVerifyCodeAgain", err)
+		}
 	}
 
 	return &pb.SendVerifyCodeResponse{
