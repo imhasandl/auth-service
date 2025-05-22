@@ -49,6 +49,7 @@ func HashPassword(password string) (string, error) {
 	return string(hashedPassword), err
 }
 
+// MockCheckPassword is a mock function for password checking used in tests
 var MockCheckPassword = func(hashedPassword, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 }

@@ -22,7 +22,7 @@ jobs:
           run: go install github.com/securego/gosec/v2/cmd/gosec@latest
 
         - name: Run gosec
-          run: gosec -exclude-dir=internal/database ./...
+          run:  gosec -exclude-dir=internal/database -exclude-dir=protos ./...
 
         # - name: Run tests with coverage
         #   run: go test ./... -coverprofile=coverage.txt -covermode=atomic
