@@ -27,13 +27,13 @@ func CacheVerificationCode(email string, code int32, expiration time.Duration) e
 }
 
 // GetVerificationCode получает верификационный код для email
-func GetVerificationCode(email string) (int32, error) {
+func GetVerificationCode(email string) (int, error) {
 	key := fmt.Sprintf("verification:%s", email)
 	result, err := Client.Get(key).Int()
 	if err != nil {
 		return 0, err
 	}
-	return int32(result), nil
+	return result, nil
 }
 
 // DeleteVerificationCode удаляет верификационный код
