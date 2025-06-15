@@ -7,6 +7,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// EnvConfig contains all the environment variables required for the application
 type EnvConfig struct {
 	Port        string
 	DBURL       string
@@ -16,6 +17,7 @@ type EnvConfig struct {
 	RedisSecret string
 }
 
+// GetENVSecrets loads environment variables from .env file and returns the configuration
 func GetENVSecrets() EnvConfig {
 	if err := godotenv.Load(".env"); err != nil {
 		log.Println("Error loading .env file")
