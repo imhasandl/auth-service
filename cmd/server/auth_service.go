@@ -119,7 +119,7 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 func (s *Server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*pb.VerifyEmailResponse, error) {
 	cachedCode, err := redis.GetVerificationCode(req.GetEmail())
 	if err == nil {
-		if cachedCode == req.GetVerificationCode() {
+		if cachedCode == int(req.GetVerificationCode()) {
 			err = s.db.VerifyUser(ctx, req.GetEmail())
 			if err != nil {
 				return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to verify user - VerifyEmail", err)
