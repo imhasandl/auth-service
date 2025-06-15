@@ -4,61 +4,37 @@ import (
 	"database/sql"
 	"log"
 	"net"
-	"os"
 
 	_ "github.com/lib/pq" // Import the postgres driver
 
+	"github.com/imhasandl/auth-service/cmd/helper"
 	server "github.com/imhasandl/auth-service/cmd/server"
 	"github.com/imhasandl/auth-service/internal/database"
+	"github.com/imhasandl/auth-service/internal/redis"
 	pb "github.com/imhasandl/auth-service/protos"
-	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 func main() {
-	if err := godotenv.Load(".env"); err != nil {
-		log.Println("Error loading .env file")
-	}
+	envConfig := helper.GetENVSecrets()
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		log.Fatalf("Set Port in env")
-	}
-
-	dbURL := os.Getenv("DB_URL")
-	if dbURL == "" {
-		log.Fatalf("Set db connection in env")
-	}
-
-	email := os.Getenv("EMAIL")
-	if email == "" {
-		log.Fatal("Set up Email in env")
-	}
-
-	emailSecret := os.Getenv("EMAIL_SECRET")
-	if emailSecret == "" {
-		log.Fatalf("Set up Email Secret in env")
-	}
-
-	tokenSecret := os.Getenv("TOKEN_SECRET")
-	if tokenSecret == "" {
-		log.Fatalf("Set db connection in env")
-	}
-
-	lis, err := net.Listen("tcp", port)
+	lis, err := net.Listen("tcp", envConfig.Port)
 	if err != nil {
 		log.Fatalf("failed to listed: %v", err)
 	}
 
-	dbConn, err := sql.Open("postgres", dbURL)
+	dbConn, err := sql.Open("postgres", envConfig.DBURL)
 	if err != nil {
 		log.Fatalf("Error opening database: %s", err)
 	}
 	dbQueries := database.New(dbConn)
 	defer dbConn.Close()
 
-	server := server.NewServer(dbQueries, tokenSecret, email, emailSecret)
+	redisConfig := redis.NewRedisConfig(envConfig.RedisSecret)
+	redis.InitRedisClient(redisConfig)
+
+	server := server.NewServer(dbQueries, envConfig.TokenSecret, envConfig.Email, envConfig.EmailSecret)
 
 	s := grpc.NewServer()
 	pb.RegisterAuthServiceServer(s, server)

@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/imhasandl/auth-service/cmd/auth"
 	"github.com/imhasandl/auth-service/internal/database"
-	"github.com/imhasandl/auth-service/internal/mocks"
+	"github.com/imhasandl/auth-service/internal/database/mocks"
 	pb "github.com/imhasandl/auth-service/protos"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
