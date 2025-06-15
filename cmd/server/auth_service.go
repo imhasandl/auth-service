@@ -2,12 +2,14 @@ package server
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
 	auth "github.com/imhasandl/auth-service/cmd/auth"
 	"github.com/imhasandl/auth-service/cmd/helper"
 	"github.com/imhasandl/auth-service/internal/database"
+	"github.com/imhasandl/auth-service/internal/redis"
 	pb "github.com/imhasandl/auth-service/protos"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -87,6 +89,11 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to store verification code - Register", err)
 	}
 
+	err = redis.CacheVerificationCode(user.Email, verificationCode, time.Hour*24)
+	if err != nil {
+		log.Printf("WARNING: Failed to cache verification code in Redis: %v", err)
+	}
+
 	if s.email != "test@example.com" {
 		err = auth.SendVerificationEmail(req.GetEmail(), s.email, s.emailSecret, verificationCode)
 		if err != nil {
@@ -110,6 +117,23 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 
 // VerifyEmail validates the verification code provided by the user against the one stored in the database.
 func (s *Server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*pb.VerifyEmailResponse, error) {
+	cachedCode, err := redis.GetVerificationCode(req.GetEmail())
+	if err == nil {
+		if cachedCode == req.GetVerificationCode() {
+			err = s.db.VerifyUser(ctx, req.GetEmail())
+			if err != nil {
+				return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to verify user - VerifyEmail", err)
+			}
+
+			_ = redis.DeleteVerificationCode(req.GetEmail())
+
+			return &pb.VerifyEmailResponse{
+				Success: true,
+				Message: "Email verified successfully",
+			}, nil
+		}
+	}
+
 	userParams := database.GetUserByIdentifierParams{
 		Email:    req.GetEmail(),
 		Username: req.GetEmail(),
@@ -137,9 +161,7 @@ func (s *Server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to verify user - VerifyEmail", err)
 	}
 
-	if user.VerificationExpireTime.Before(time.Now()) {
-		return nil, helper.RespondWithErrorGRPC(ctx, codes.DeadlineExceeded, "verification code expired - VerifyEmail", nil)
-	}
+	_ = redis.DeleteVerificationCode(req.GetEmail())
 
 	return &pb.VerifyEmailResponse{
 		Success: true,
