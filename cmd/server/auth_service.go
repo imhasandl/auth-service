@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	auth "github.com/imhasandl/auth-service/cmd/auth"
+	"github.com/imhasandl/auth-service/cmd/auth"
 	"github.com/imhasandl/auth-service/cmd/helper"
 	"github.com/imhasandl/auth-service/internal/database"
 	"github.com/imhasandl/auth-service/internal/redis"
 	pb "github.com/imhasandl/auth-service/protos"
+	PostService "github.com/imhasandl/post-service/cmd/auth"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -89,7 +90,7 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "failed to store verification code - Register", err)
 	}
 
-	err = redis.CacheVerificationCode(user.Email, verificationCode, time.Hour*24)
+	err = redis.CacheVerificationCode(user.Email, verificationCode, time.Hour*2)
 	if err != nil {
 		log.Printf("WARNING: Failed to cache verification code in Redis: %v", err)
 	}
@@ -249,6 +250,14 @@ func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't store refresh token - Login", err)
 	}
 
+	if err := redis.SaveAccessToken(user.ID.String(), accessToken, time.Hour*1); err != nil {
+		log.Printf("Redis caching error for access token: %v", err)
+	}
+
+	if err := redis.SaveRefreshToken(user.ID.String(), refreshToken, time.Hour*7*24); err != nil {
+		log.Printf("Redis caching error for access token: %v", err)
+	}
+
 	return &pb.LoginResponse{
 		User: &pb.User{
 			Id:        user.ID.String(),
@@ -317,12 +326,16 @@ func (s *Server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) 
 // It deletes the token from the database to prevent its future use.
 // It returns a success response or an appropriate error on failure.
 func (s *Server) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.LogoutResponse, error) {
-	refreshToken := req.GetRefreshToken()
-	if refreshToken == "" {
-		return nil, helper.RespondWithErrorGRPC(ctx, codes.InvalidArgument, "refresh token is required - Logout", nil)
+	userID, err := PostService.ValidateJWT(req.RefreshToken, s.tokenSecret)
+	if err != nil {
+		return nil, helper.RespondWithErrorGRPC(ctx, codes.Unauthenticated, "invalid token - Logout", err)
 	}
 
-	err := s.db.DeleteRefreshTokenByToken(ctx, refreshToken)
+	if err := redis.DeleteAllUserTokens(userID.String()); err != nil {
+		log.Printf("Failed to delete user tokens from Redis: %v", err)
+	}
+
+	err = s.db.DeleteTokenByUserID(ctx, userID)
 	if err != nil {
 		return nil, helper.RespondWithErrorGRPC(ctx, codes.Internal, "can't delete token - Logout", err)
 	}
