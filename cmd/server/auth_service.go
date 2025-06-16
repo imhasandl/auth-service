@@ -25,7 +25,6 @@ type DBQuerier interface {
 	SendVerifyCodeAgain(ctx context.Context, arg database.SendVerifyCodeAgainParams) error
 	RefreshToken(ctx context.Context, arg database.RefreshTokenParams) (database.RefreshToken, error)
 	GetRefreshToken(ctx context.Context, token string) (database.RefreshToken, error)
-	DeleteRefreshTokenByToken(ctx context.Context, token string) error
 	DeleteTokenByUserID(ctx context.Context, userID uuid.UUID) error
 }
 
