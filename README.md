@@ -35,6 +35,7 @@ DB_URL="postgres://username:password@host:port/database?sslmode=disable"
 # DB_URL="postgres://username:password@db:port/database?sslmode=disable" // FOR DOCKER COMPOSE
 EMAIL="Company email for sending email notification for account validation"
 EMAIL_SECRET="email pass phrase"
+REDIS_SECRET="your passord for redis configuration"
 ```
 
 This service uses Goose for database migrations:

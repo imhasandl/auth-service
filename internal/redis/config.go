@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/go-redis/redis"
 )
@@ -17,9 +18,19 @@ type Config struct {
 
 // NewRedisConfig creates a new config for Redis
 func NewRedisConfig(password string) *Config {
+	host := os.Getenv("REDIS_HOST")
+	if host == "" {
+		host = "localhost" // fallback for local development
+	}
+
+	port := os.Getenv("REDIS_PORT")
+	if port == "" {
+		port = "6379"
+	}
+
 	return &Config{
-		Host:     "localhost",
-		Port:     "6379",
+		Host:     host,
+		Port:     port,
 		Password: password,
 		DB:       0,
 	}
